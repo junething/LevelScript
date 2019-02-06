@@ -552,7 +552,7 @@ namespace LevelScript {
 			[Operators.LesserThanOrEqualTo] = new OperatorInfo { Text = "<=", Precedence = 1 },
 			[Operators.Not] = new OperatorInfo { Text = "!", Precedence = 7, Unary = true },
 			// Special
-			[Operators.Access] = new OperatorInfo { Text = ".", Precedence = 6, RightAssociative = true },
+			[Operators.Access] = new OperatorInfo { Text = ".", Precedence = 8, RightAssociative = false },
 			[Operators.Range] = new OperatorInfo { Text = "..", Precedence = 6 },
 			//["->"] = new Operator { Name = "..", Precedence = 6 },
 			[Operators.Index] = new OperatorInfo { Text = "#", Precedence = 1, RightAssociative = true },

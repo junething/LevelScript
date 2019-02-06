@@ -11,25 +11,28 @@ using static LevelScript.Logging;
 using static LevelScript.Extensions;
 using static LevelScript.Lexer;
 using static LevelScript.Token;
+using static Jarrah.Debug;
 using System.Reflection;
 namespace LevelScript {
-	public class Runtime : MonoBehaviour {
+	public class Runtime {
 		Heap heap;
-		//List<Func<int, int>> callBacks;
+	  	public Runtime () {
+			heap = new Heap ();
+			heap.Enter ();
+			heap ["print"] = GetType ().GetMethod ("Print");
+//			print (heap ["print"]);
+			heap ["int"] = GetType ().GetMethod ("Int");
+			heap ["float"] = GetType ().GetMethod ("Float");
+			heap ["str"] = GetType ().GetMethod ("Str");
+			heap ["destroy"] = GetType ().GetMethod ("Destroy");
+			heap ["vector"] = GetType ().GetMethod ("Vector");
+		}
+
 		public void Go (Code code)
 		{
-//			print (code.code.Length);
-			heap = new Heap ();
-			//callBacks = new List<Func> ();
-			//	callBacks.Add ((Func<int>)CallBack);
-			heap.Enter ();
-			this ["test"] = GetType ().GetMethod ("CallBack");
 			Run (code);
 		}
-		public void CallBack (int num)
-		{
-			print ("It WORKS!" + num);
-		}
+
 		public void Run (Code code, bool scopeMade = false)
 		{
 			heap.Enter ();
@@ -66,7 +69,7 @@ namespace LevelScript {
 			case Call call:
 //				print (Parser.show (call));
 //				print (((Word)call.function).word);
-				return Call (call.function, EvaluateNode (call.parameters));
+				return Call (EvaluateNode(call.function), EvaluateNode (call.parameters));
 			case List list:
 				return EvaluateNode (list.items);
 			case Const @const:
@@ -78,6 +81,8 @@ namespace LevelScript {
 				return null;
 			case Index index:
 				return EvaluateNode(index.list) [EvaluateNode(index.key)];
+			case Access access:
+				return Access (access.obj, access.member);
 			case If @if:
 				dynamic evaluation = EvaluateNode (@if.condition);
 				//				print (evaluation);
@@ -111,6 +116,7 @@ namespace LevelScript {
 			throw new Exception ($"{node} has not been evaluated!");
 			dynamic Operate (Node operandOne, Node operandTwo, Operators @operator)
 			{
+				print ($".{Parser.show(operandOne)} {@operator} {Parser.show (operandTwo)}");
 				dynamic one;
 				if (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign)
 					one = EvaluateNode (operandOne);
@@ -139,22 +145,58 @@ namespace LevelScript {
 				case Operators.Not: return !one;
 				// Assign
 				case Operators.Assign:
-					if (one is Index) {
-						Node collection = ((Index)one).list;
-						int index = EvaluateNode (((Index)one).key);
-//						print ($"{collection} [ {index} ]");
-						EvaluateNode (collection) [index] = two;
-					} else
-						heap [one.word] = two;
-				return two;
+					return Assign(one, two);
 				// Assign
-				case Operators.PlusAssign: heap [one.word] = EvaluateNode (one) + two; return Token.Punctuation.None;
+				case Operators.PlusAssign:
+					return Assign (one, EvaluateNode(one) + two);
 				//
 				case Operators.Index: return one [two];
+				case Operators.Access: return Access(one, two);
 				default:
 					throw new Exception ($"{Display (@operator)} is not implemented yet.");
 				}
 
+			}
+		}
+		dynamic Assign (dynamic one, dynamic two)
+		{
+			switch (one) {
+			case Index index:
+				Node collection = index.list;
+				int i = EvaluateNode (index.key);
+				EvaluateNode (collection) [index] = two;
+				return 2;
+			case Word word:
+				heap [word.word] = two;
+				return two;
+			case Access access:
+				dynamic obj = EvaluateNode (access.obj);
+				dynamic member = Access (access.obj, access.member, false);
+				print (member);
+				print (obj);
+				print (two);
+				member.SetValue (obj, two);
+				return two;
+			}
+				throw new Exception ("could not assign");
+		}
+		dynamic Access (dynamic one, string two, bool GetValue = true)
+		{
+			one = EvaluateNode (one);
+			print ($"Finding member: '{two}' on '{one}'");
+			if (one.GetType ().GetMethod (two) != null) {
+				return new InstanceMethodInfo (one.GetType ().GetMethod (two), one);
+			}
+			if (one.GetType ().GetField (two) != null) {
+				if(GetValue)
+					return one.GetType ().GetField (two).GetValue (one);
+				return one.GetType ().GetField (two);
+			} else if (one.GetType ().GetProperty (two) != null) {
+				if (GetValue)
+					return one.GetType ().GetProperty (two).GetValue (one);
+				return one.GetType ().GetProperty (two);
+			} else {
+				throw new Exception ($"Can't find member: '{two}' on '{one}'");
 			}
 		}
 		public List<dynamic> EvaluateNode (List<Node> node)
@@ -173,32 +215,53 @@ namespace LevelScript {
 		{
 			return Array.ConvertAll (nodes, x => EvaluateNode (x));
 		}
-		dynamic Call (Node function, dynamic [] parameters)
+		public int Int (object obj)
+		{
+			switch (obj) {
+			case int i:
+				return i;
+			case float f:
+				return (int)f;
+			case string s:
+				int outInt;
+				if (int.TryParse (s, out outInt))
+					return outInt;
+				break;
+			}
+			throw new Exception (obj.ToString() + " cannot be converted to an int");
+		}
+		public void Print(object obj) { print (">>>" + obj); }
+		public float Float (object obj)
+		{
+			switch (obj) {
+			case int i: return i;
+			case float f: return f;
+			case string s:
+				float outFloat;
+				if (float.TryParse (s, out outFloat))
+					return outFloat;
+				break;
+			}
+			throw new Exception (obj.ToString () + " cannot be converted to a float");
+		}
+		public string Str (object obj) { return obj.ToString (); }
+		public void Destroy (UnityEngine.Object obj) { UnityEngine.Object.Destroy (obj); }
+		public Vector3 Vector (float x, float y, float z = 0) { return new Vector3 (x, y, z); }
+		dynamic Call (object function, dynamic [] parameters)
 		{
 
 			//dynamic func = EvaluateNode (function);
-			if (function is Word) {
-				string name = ((Word)function).word;
-//				print ($"Calling : {name}, parameter[0] = {parameters [0]}");
-				switch (name) {
-				case "print":
-					print (" >>>> " + parameters [0]);
-					break;
-				default:
-					dynamic method = heap [name];
-					switch (method) {
-					case Method scriptedMethod:
-						Run (scriptedMethod, parameters);
-						break;
-					case MethodInfo cSharpMethod:
-						cSharpMethod.Invoke (this, parameters);
-						break;
-					}
-
-					break;
-				}
+			switch (function) {
+			case Method scriptedMethod:
+				Run (scriptedMethod, parameters);
+				return 0;
+			case MethodInfo cSharpMethod:
+				return cSharpMethod.Invoke (this, parameters);
+			case InstanceMethodInfo cSharpMethod:
+				return cSharpMethod.methodInfo.Invoke (cSharpMethod.instance, parameters);
+				
 			}
-			return null;
+			throw new Exception ($"Could not call '{function}'");
 		}
 
 		/*void AssignVar (string variable, dynamic value)
@@ -220,6 +283,15 @@ namespace LevelScript {
 			}
 			throw new Exception ($"[404]: Varaible '{word.word}' could not be found.");
 		}*/
+	  	public class InstanceMethodInfo {
+			public MethodInfo methodInfo;
+			public object instance;
+			public InstanceMethodInfo (MethodInfo methodInfo, object instance)
+			{
+				this.methodInfo = methodInfo;
+				this.instance = instance;
+			}
+		}
 		public dynamic this [string key] {
 			get { return heap[key]; }
 			set { heap [key] = value; }

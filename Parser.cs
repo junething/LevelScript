@@ -127,7 +127,7 @@ namespace LevelScript {
 				}
 			}
 			code.Reverse ();
-//			print (show (code), Color.red);
+			print (show (code), Color.red);
 			return new Code(code.ToArray ());
 			//<summary> If an operator is not provided will take it from the stack </summary>
 			void HandleOperatorOrKeyword (dynamic token = null)
@@ -210,6 +210,12 @@ namespace LevelScript {
 						tree.Push (new Index (collection, index));
 					}
 					break;
+				case Token.Operators.Access: {
+						string member = tree.Pop ().word;
+						Node obj = tree.Pop ();
+						tree.Push (new Access (obj, member));
+					}
+					break;
 				default:
 					var two = tree.Pop ();
 					var one = tree.Pop ();
@@ -229,6 +235,10 @@ namespace LevelScript {
 		{
 			return ($"({show(node.OperandOne)} {Display(node.@operator)} {show(node.OperandTwo)})");
 		}
+		public static string show (Access node)
+		{
+			return ($"({show (node.obj)}.{node.member})");
+		}
 		public static string show (Const node)
 		{
 			if (node.value is List<dynamic>)
@@ -243,7 +253,7 @@ namespace LevelScript {
 		public static string show (Call node)
 		{
 
-			return $"{ ((Word)node.function).word } ( { string.Join(", ", Array.ConvertAll(node.parameters, show)) } )";
+			return $"{ show(node.function) } @ ( { string.Join(", ", Array.ConvertAll(node.parameters, show)) } )";
 		}
 		public static string show (List<Node> nodes)
 		{
@@ -265,6 +275,8 @@ namespace LevelScript {
 				return show ((Definition)node);
 			if (node is Call)
 				return show ((Call)node);
+			if (node is Access)
+				return show ((Access)node);
 			return node.ToString();
 		}
 	}
@@ -326,6 +338,15 @@ namespace LevelScript {
 				this.variable = variable;
 				this.list = list;
 				this.body = body;
+			}
+		}
+		public class Access : Node {
+			public readonly string member;
+			public readonly Node obj;
+			public Access (Node obj, string member)
+			{
+				this.obj = obj;
+				this.member = member;
 			}
 		}
 		public class Definition : Node {

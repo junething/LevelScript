@@ -11,6 +11,10 @@ namespace Jarrah {
 		{
 			UnityEngine.Debug.Log ($"<color=#{ColorUtility.ToHtmlStringRGB (color)}>{obj.ToString()}</color>");
 		}
+		public static void print (object obj)
+		{
+			UnityEngine.Debug.Log (obj);
+		}
 		[MenuItem ("Tools/Clear Console %&#c")] // CMD + SHIFT + C
 		public static void ClearConsole ()
 		{
