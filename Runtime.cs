@@ -1,26 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections;
-using System.IO;
-using System.Linq;
-using System.Text;
+using System;
+using System.Threading.Tasks;
 using UnityEngine;
-using static LevelScript.Phrasing;
 using static LevelScript.Node;
 using static LevelScript.Logging;
 using static LevelScript.Extensions;
-using static LevelScript.Lexer;
 using static LevelScript.Token;
 using static Jarrah.Debug;
 using System.Reflection;
 namespace LevelScript {
 	public class Runtime {
 		Heap heap;
-	  	public Runtime () {
+		public Runtime () {
 			heap = new Heap ();
 			heap.Enter ();
 			heap ["print"] = GetType ().GetMethod ("Print");
-//			print (heap ["print"]);
+			//			print (heap ["print"]);
 			heap ["int"] = GetType ().GetMethod ("Int");
 			heap ["float"] = GetType ().GetMethod ("Float");
 			heap ["str"] = GetType ().GetMethod ("Str");
@@ -33,25 +29,44 @@ namespace LevelScript {
 			Run (code);
 		}
 
-		public void Run (Code code, bool scopeMade = false)
+		public dynamic Run (Code code, bool scopeMade = false)
 		{
 			heap.Enter ();
 			foreach (Node node in code.code) {
-//				print (Parser.show (node));
-				EvaluateNode (node);
+				dynamic result = EvaluateNode (node);
+				//print (result + "]]]");
+				//print (node);
+				if (result is ReturnValue) {
+					heap.Exit ();
+					return ((ReturnValue)result);
+				}
 			}
 			heap.Exit ();
+			return null;
 		}
-		public void Run (Method method, dynamic[] parameters)
+		public dynamic Run (Method method, dynamic [] parameters)
 		{
 			heap.Enter ();
 			for (int p = 0; p < method.parameters.Length; p++)
 				heap [method.parameters [p]] = parameters [p];
 			foreach (Node node in method.code.code) {
-//				print (Parser.show (node));
-				EvaluateNode (node);
+				//				print (Parser.show (node));
+				dynamic result = EvaluateNode (node);
+				//print (result + ";");
+				if (result is ReturnValue) {
+					heap.Exit ();
+					return ((ReturnValue)result).value;
+				}
 			}
 			heap.Exit ();
+			return null;
+		}
+		public class ReturnValue {
+			public dynamic value;
+			public ReturnValue(dynamic value)
+			{
+				this.value = value;
+			}
 		}
 		public dynamic EvaluateNode (Node node, bool scopeMade = false)
 		{
@@ -83,14 +98,17 @@ namespace LevelScript {
 				return EvaluateNode(index.list) [EvaluateNode(index.key)];
 			case Access access:
 				return Access (access.obj, access.member);
+			case Return _return:
+//				print (EvaluateNode(_return._return));
+				return new ReturnValue (EvaluateNode (_return._return));
 			case If @if:
 				dynamic evaluation = EvaluateNode (@if.condition);
 				//				print (evaluation);
 				if (evaluation) {
-					Run (@if.body);
+					return Run (@if.body);
 				} else if (@if.@else != null)
-					EvaluateNode (@if.@else);
-				return null;
+					return EvaluateNode (@if.@else);
+				return 9;
 			case While @while:
 
 				print (Parser.show (@while.condition));
@@ -106,7 +124,7 @@ namespace LevelScript {
 				heap.Enter ();
 				foreach (dynamic var in EvaluateNode(@for.list)) {
 //					print ($"{@for.variable} = {Parser.show(var)}");
-					heap [@for.variable] = EvaluateNode(var);
+					heap [@for.variable] = var;
 //					print (Parser.show (@for.body.code [0]));
 					Run (@for.body);
 				}
@@ -114,49 +132,89 @@ namespace LevelScript {
 				return null;
 			}
 			throw new Exception ($"{node} has not been evaluated!");
-			dynamic Operate (Node operandOne, Node operandTwo, Operators @operator)
-			{
-				print ($".{Parser.show(operandOne)} {@operator} {Parser.show (operandTwo)}");
-				dynamic one;
-				if (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign)
-					one = EvaluateNode (operandOne);
-				else
-					one = operandOne;
-				dynamic two = EvaluateNode (operandTwo);
-				switch (@operator) {
-				// Math
-				case Operators.Plus: return one + two;
-				case Operators.Minus: return one - two;
-				case Operators.Multiply: return one * two;
-				case Operators.Divide: return one / two;
-				case Operators.Power: return Mathf.Pow (one, two);
-				case Operators.Modulus: return one % two;
-				case Operators.Range: return Range (one, two);
-				// Check
-				case Operators.Equals: return one == two;
-				case Operators.LesserThan: return one < two;
-				case Operators.GreaterThan: return one > two;
-				case Operators.LesserThanOrEqualTo: return one <= two;
-				case Operators.GreaterThanOrEqualTo: return one >= two;
-				// Logic
-				case Operators.And: return one && two;
-				case Operators.Or: return one || two;
-				//case Operators.Xor: return one ^ two;
-				case Operators.Not: return !one;
-				// Assign
-				case Operators.Assign:
-					return Assign(one, two);
-				// Assign
-				case Operators.PlusAssign:
-					return Assign (one, EvaluateNode(one) + two);
-				//
-				case Operators.Index: return one [two];
-				case Operators.Access: return Access(one, two);
-				default:
-					throw new Exception ($"{Display (@operator)} is not implemented yet.");
-				}
-
+		}
+		async Task<dynamic> EvaluateNodeAsync (Node node, bool scopeMade = false)
+		{
+			if (!scopeMade) {
+				heap.Enter ();
 			}
+			switch (node) {
+
+			case Call call:
+				return Call (EvaluateNode (call.function), EvaluateNode (call.parameters));
+			case Code code:
+				Run (code);
+				return null;
+			case If @if:
+				dynamic evaluation = EvaluateNode (@if.condition);
+				if (evaluation) {
+					Run (@if.body);
+				} else if (@if.@else != null)
+					EvaluateNode (@if.@else);
+				return null;
+			case While @while:
+				print (Parser.show (@while.condition));
+				int loops = 0;
+				while (EvaluateNode (@while.condition)) {
+					loops++;
+					Run (@while.body);
+					if (loops > 100)
+						throw new Exception ("Too much looping");
+				}
+				return null;
+			case For @for:
+				heap.Enter ();
+				foreach (dynamic var in EvaluateNode (@for.list)) {
+					heap [@for.variable] = var;
+					Run (@for.body);
+				}
+				heap.Exit ();
+				return null;
+			}
+			throw new Exception ($"{node} has not been evaluated!");
+		}
+		dynamic Operate (Node operandOne, Node operandTwo, Operators @operator)
+		{
+			//				print ($".{Parser.show(operandOne)} {@operator} {Parser.show (operandTwo)}");
+			dynamic one;
+			if (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign)
+				one = EvaluateNode (operandOne);
+			else
+				one = operandOne;
+			dynamic two = EvaluateNode (operandTwo);
+			switch (@operator) {
+			// Math
+			case Operators.Plus: return one + two;
+			case Operators.Minus: return one - two;
+			case Operators.Multiply: return one * two;
+			case Operators.Divide: return one / two;
+			case Operators.Power: return Mathf.Pow (one, two);
+			case Operators.Modulus: return one % two;
+			case Operators.Range: return Range (one, two);
+			// Check
+			case Operators.Equals: return one == two;
+			case Operators.LesserThan: return one < two;
+			case Operators.GreaterThan: return one > two;
+			case Operators.LesserThanOrEqualTo: return one <= two;
+			case Operators.GreaterThanOrEqualTo: return one >= two;
+			// Logic
+			case Operators.And: return one && two;
+			case Operators.Or: return one || two;
+			//case Operators.Xor: return one ^ two;
+			case Operators.Not: return !one;
+			// Assign
+			case Operators.Assign:
+				return Assign (one, two);
+			// Assign
+			case Operators.PlusAssign:
+				return Assign (one, EvaluateNode (one) + two);
+			//
+			case Operators.Index: return one [two];
+			case Operators.Access: return Access (one, two);
+			default:
+				throw new Exception ($"{Display (@operator)} is not implemented yet.");
+			}
+
 		}
 		dynamic Assign (dynamic one, dynamic two)
 		{
@@ -183,7 +241,7 @@ namespace LevelScript {
 		dynamic Access (dynamic one, string two, bool GetValue = true)
 		{
 			one = EvaluateNode (one);
-			print ($"Finding member: '{two}' on '{one}'");
+//			print ($"Finding member: '{two}' on '{one}'");
 			if (one.GetType ().GetMethod (two) != null) {
 				return new InstanceMethodInfo (one.GetType ().GetMethod (two), one);
 			}
@@ -253,8 +311,7 @@ namespace LevelScript {
 			//dynamic func = EvaluateNode (function);
 			switch (function) {
 			case Method scriptedMethod:
-				Run (scriptedMethod, parameters);
-				return 0;
+				return Run (scriptedMethod, parameters);
 			case MethodInfo cSharpMethod:
 				return cSharpMethod.Invoke (this, parameters);
 			case InstanceMethodInfo cSharpMethod:
@@ -344,16 +401,16 @@ namespace LevelScript {
 				scopes.RemoveAt (scopes.Count - 1);
 			}
 		}
-		List<Node> Range (int start, int end)
+		List<dynamic> Range (int start, int end)
 		{
-			var rangeList = new List<Node> ();
+			var rangeList = new List<dynamic> ();
 			if (start < end) {
 				for (int i = start; i < end; i++) {
-					rangeList.Add (new Const (i));
+					rangeList.Add (i);
 				}
 			} else {
 				for (int i = start; i > end; i--) {
-					rangeList.Add (new Const (i));
+					rangeList.Add (i);
 				}
 			}
 			return rangeList;

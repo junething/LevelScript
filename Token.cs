@@ -17,7 +17,7 @@ namespace LevelScript {
 			Assign, PlusAssign,                                               // Assign
 			//     ..
 			Range,                                             // Other
-			Define, If, For, While, Else, Elif									// I dont like these here :( HACK
+			Define, If, For, While, Else, Elif, Return									// I dont like these here :( HACK
 
 		};
 		public enum Punctuation {

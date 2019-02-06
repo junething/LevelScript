@@ -216,6 +216,10 @@ namespace LevelScript {
 						tree.Push (new Access (obj, member));
 					}
 					break;
+				case Token.Operators.Return: {
+						tree.Push (new Return (tree.Pop ()));
+					}
+					break;
 				default:
 					var two = tree.Pop ();
 					var one = tree.Pop ();
@@ -263,6 +267,10 @@ namespace LevelScript {
 		{
 			return $"def {node.name } ())";
 		}
+		public static string show (If node)
+		{
+			return $"if {show(node.condition)} then {show(node.body)})";
+		}
 		public static string show (Node node)
 		{
 			if (node is Operator)
@@ -277,6 +285,8 @@ namespace LevelScript {
 				return show ((Call)node);
 			if (node is Access)
 				return show ((Access)node);
+			if (node is If)
+				return show ((If)node);
 			return node.ToString();
 		}
 	}
@@ -317,6 +327,13 @@ namespace LevelScript {
 				this.condition = condition;
 				this.body = body;
 				this.@else = @else;
+			}
+		}
+		public class Return : Node {
+			public Node _return;
+			public Return (Node _return)
+			{
+				this._return = _return;
 			}
 		}
 		public class While : Node {

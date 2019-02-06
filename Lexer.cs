@@ -164,15 +164,16 @@ namespace LevelScript {
 					tokens.Add (operatorPhraseInfo [token].op);
 				else {
 					switch (token) {
-						case "true": tokens.Add (true); break;
-						case "false": tokens.Add (false); break;
-						case "def": tokens.Add (Operators.Define); break;
-						case "end": tokens.Add (Punctuation.CurlyClose); break;
-						case "if": tokens.Add (Operators.If); break;
+					case "true": tokens.Add (true); break;
+					case "false": tokens.Add (false); break;
+					case "def": tokens.Add (Operators.Define); break;
+					case "end": tokens.Add (Punctuation.CurlyClose); break;
+					case "if": tokens.Add (Operators.If); break;
 					case "else": tokens.Add (Operators.Else); break;
 					case "elif": tokens.Add (Operators.Elif); break;
-						case "for": tokens.Add (Operators.For); break;
-						case "while": tokens.Add (Operators.While); break;
+					case "for": tokens.Add (Operators.For); break;
+					case "while": tokens.Add (Operators.While); break;
+					case "return": tokens.Add (Operators.Return); break;
 					default: tokens.Add (new WORD (token)); break;
 					}
 
@@ -563,6 +564,7 @@ namespace LevelScript {
 			[Operators.Else] = new OperatorInfo { Text = "else", Precedence = 7, RightAssociative = false },
 			[Operators.For] = new OperatorInfo { Text = "for", Precedence = 7, RightAssociative = false },
 			[Operators.While] = new OperatorInfo { Text = "for", Precedence = 7, RightAssociative = false },
+			[Operators.Return] = new OperatorInfo { Text = "return", Precedence = 7, RightAssociative = false },
 			//[Operators.While] = new OperatorInfo { Text = "while", Precedence = 7, RightAssociative = false },
 		};
 		public static IDictionary<string, OperatorPhraseInfo> operatorPhraseInfo = new Dictionary<string, OperatorPhraseInfo> {
