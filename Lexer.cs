@@ -15,9 +15,9 @@ namespace LevelScript {
 		public static List<dynamic> Lex (string input)
 		{
 			var tokens = Tokenize (input).ToList ();
-//			Print (tokens);
+			Print (tokens);
 			tokens = Process (tokens).ToList ();
-//			Print (tokens);
+			Print (tokens);
 			tokens = ExtractCodeBlocks (tokens.ToList ()).ToList (); // This also shunts the code blocks, but not the parent scope
 //			Print (tokens);
 			return tokens;
@@ -61,6 +61,7 @@ namespace LevelScript {
 			bool inComment = false;
 			bool inRegex = false;
 			bool escape = false;
+			int closeParenthesisToAddNextNewLine = 0;
 			string token = "";
 			foreach (char ch in code) {
 				(bool yes, Token.Punctuation symbol) potentialSymbol = IsSymbol (ch.ToString ());
@@ -75,8 +76,13 @@ namespace LevelScript {
 				} else if (ch == '\n') {
 					if (inComment)
 						inComment = false;
-					else
+					else {
+						if (closeParenthesisToAddNextNewLine > 0) {
+							for (int p = 0; p < closeParenthesisToAddNextNewLine; p++)
+								SubmitToken (Punctuation.ParenthesisClose);
+						}
 						SubmitToken (Punctuation.Newline);
+					}
 				} else if (inComment) {
 					continue;
 				} if (ch == '"') {
@@ -175,7 +181,11 @@ namespace LevelScript {
 					case "while": tokens.Add (Operators.While); break;
 					//case "return": tokens.Add (Operators.Return); break;
 					//case "wait": tokens.Add (Operators.Wait); break;
-					default: tokens.Add (new WORD (token)); break;
+					default:
+						//if (IsKeyword (token))
+						//	tokens.Add (Punctuation.ParenthesisOpen);
+						tokens.Add (new WORD (token));
+						break;
 					}
 
 				}
@@ -218,22 +228,54 @@ namespace LevelScript {
 				default:	return (false, Operators.None);
 				}
 			}
+		
 			#endregion
 			return tokens;
 		}
 
 		 public static IEnumerable<dynamic> Process(List<dynamic> tokens)
 		 {
-			 for (int i=0; i < tokens.Count - 1; i++) {
+			bool IsObject (dynamic obj)
+			{
+				if (obj is Punctuation && (obj == Punctuation.ParenthesisClose || obj == Punctuation.SquareClose))
+					return true;
+				if (obj is WORD)
+					return true;
+				return false;
+			}
+			for (int i=0; i < tokens.Count - 1; i++) {
 				switch (tokens [i]) {
 				case Token.Punctuation s:
-					if (s == Token.Punctuation.SquareOpen && i > 0 && tokens [i-1] is WORD) {
+					if (s == Token.Punctuation.SquareOpen && i > 0 && IsObject (tokens [i-1])) {
 						tokens [i] = Operators.Index;
 						tokens.Insert (++i, Token.Punctuation.ParenthesisOpen);
 						for (int j = i; j < tokens.Count; j++) {
 							if (tokens [j] is Token.Punctuation && tokens [j] == Token.Punctuation.SquareClose) {
 								tokens [j] = Token.Punctuation.ParenthesisClose;
 								break;
+							}
+						}
+					}
+					if (s == Token.Punctuation.ParenthesisOpen && i > 0 && IsObject (tokens [i - 1])) {
+						tokens [i] = Token.Punctuation.SquareOpen;
+						if (!(i > 1 && tokens [i - 2] is Operators && tokens [i - 2] == Operators.Define)) {
+							Debug.Log (8888);
+							tokens.Insert (i, Operators.Invoke);
+
+						}
+						
+
+						int parenthesis = 1;
+						for (int j = i; j < tokens.Count; j++) {
+							if (tokens [j] is Token.Punctuation && tokens [j] == Token.Punctuation.ParenthesisOpen) {
+								parenthesis++;
+							} else if (tokens [j] is Token.Punctuation && tokens [j] == Token.Punctuation.ParenthesisClose) {
+								parenthesis--;
+								if (parenthesis == 0) {
+									tokens [j] = Token.Punctuation.SquareClose;
+									i++;
+									break;
+								}
 							}
 						}
 					}
@@ -298,7 +340,7 @@ namespace LevelScript {
 								}
 							}
 						}
-					} else*/
+					} else
 					if (i+1 < tokens.Count && tokens [i + 1] is Token.Punctuation && tokens [i + 1] == Token.Punctuation.ParenthesisOpen) {
 						if (!(i > 0 && tokens [i - 1] is Operators && tokens [i - 1] == Operators.Define)) {
 							tokens.Insert (++i, Operators.Invoke);
@@ -321,17 +363,7 @@ namespace LevelScript {
 							}
 						}
 						
-					} else if (tokens [i].str == "return") {
-						tokens.Insert (i++, Token.Punctuation.Terminate);
-						tokens.Insert (++i, Operators.Invoke);
-						tokens.Insert (++i, Token.Punctuation.ParenthesisOpen);
-						for (int j = i; j < tokens.Count; j++) {
-							if (Compare (tokens [j], Token.Punctuation.EndStatement)) {
-								tokens.Insert (j, Token.Punctuation.ParenthesisClose);
-								break;
-							}
-						}
-					}
+					}*/
 					break;
 				case Operators op:
 					if (op == Operators.If || op == Operators.While || op == Operators.Elif) {
@@ -355,13 +387,13 @@ namespace LevelScript {
 							}
 						}
 					} else if (op == Operators.Else) {
-						if(tokens[i+1] is Token.Operators && tokens[i+1] == Operators.If) {
+						/*if(tokens[i+1] is Token.Operators && tokens[i+1] == Operators.If) {
 							tokens [i + 1] = Operators.Elif;
 							tokens[i] = Punctuation.CurlyClose;
 							i--;
 						} else {
 							tokens.Insert (i - 1, Punctuation.CurlyClose);
-						}
+						}*/
 					}
 					//if (op == Operators.Elif) {
 					//	tokens.Insert (i - 1, Token.Punctuation.CurlyClose);
@@ -370,6 +402,7 @@ namespace LevelScript {
 			  
 
 					break;
+			
 				}
 				/*
 				if (tokens [i].value == "while") {

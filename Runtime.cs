@@ -41,14 +41,12 @@ namespace LevelScript {
 				heap.Enter ();
 			foreach (Node node in code.code) {
 				if (node.awaitable) {
-					//print ($"waiting for {node}");
 					dynamic result = await EvaluateNodeAsync (node);
 					if (result is ReturnValue) {
 						heap.Exit ();
 						return ((ReturnValue)result);
 					}
 				} else {
-					//print ($"not waiting for {node}");
 					dynamic result = EvaluateNode (node);
 					if (result is ReturnValue) {
 						heap.Exit ();
@@ -64,15 +62,7 @@ namespace LevelScript {
 			heap.Enter ();
 			for (int p = 0; p < method.parameters.Length; p++)
 				heap [method.parameters [p]] = parameters [p];
-			foreach (Node node in method.code.code) {
-				dynamic result = EvaluateNode (node);
-				if (result is ReturnValue) {
-					heap.Exit ();
-					return ((ReturnValue)result).value;
-				}
-			}
-			heap.Exit ();
-			return null;
+			return Run (method.code, true);
 		}
 		public async Task<dynamic> RunAsync (Method method, dynamic [] parameters)
 		{
@@ -86,20 +76,10 @@ namespace LevelScript {
 			if (!scopeMade)
 				heap.Enter ();
 			foreach (Node node in code.code) {
-				if (node.awaitable) {
-					//print ($"waiting for {node}");
-					dynamic result = EvaluateNode (node);
-					if (result is ReturnValue) {
-						heap.Exit ();
-						return ((ReturnValue)result);
-					}
-				} else {
-					//print ($"not waiting for {node}");
-					dynamic result = EvaluateNode (node);
-					if (result is ReturnValue) {
-						heap.Exit ();
-						return ((ReturnValue)result);
-					}
+				dynamic result = EvaluateNode (node);
+				if (result is ReturnValue) {
+					heap.Exit ();
+					return ((ReturnValue)result);
 				}
 			}
 			heap.Exit ();
@@ -110,6 +90,15 @@ namespace LevelScript {
 			public ReturnValue(dynamic value)
 			{
 				this.value = value;
+			}
+		}
+		public dynamic Evaluate (object obj)
+		{
+			switch (obj) {
+			case ReturnValue returnValue:
+				return returnValue.value;
+			default:
+				return obj;
 			}
 		}
 		public dynamic EvaluateNode (Node node, bool scopeMade = false)
@@ -202,8 +191,9 @@ namespace LevelScript {
 				//				print (evaluation);
 				if (evaluation) {
 					return await RunAsync (@if.body);
-				} else if (@if.@else != null)
-					return await EvaluateNode (@if.@else);
+				} else if (@if.@else != null) {
+					return await EvaluateNodeAsync (@if.@else);
+				}
 				return 9;
 			case While @while:
 
@@ -301,6 +291,7 @@ namespace LevelScript {
 		}
 		dynamic Assign (dynamic one, dynamic two)
 		{
+			two = Evaluate (two);
 			switch (one) {
 			case Index index:
 				Node collection = index.list;
@@ -342,7 +333,7 @@ namespace LevelScript {
 		}
 		public List<dynamic> EvaluateNode (List<Node> node)
 		{
-			return node.ConvertAll (x => EvaluateNode (x));
+			return node.ConvertAll (x => Evaluate(EvaluateNode (x)));
 		}
 		/*public dynamic EvaluateCode (Code code)
 		{
@@ -354,7 +345,7 @@ namespace LevelScript {
 		}*/
 		public dynamic EvaluateNode (Node [] nodes)
 		{
-			return Array.ConvertAll (nodes, x => EvaluateNode (x));
+			return Array.ConvertAll (nodes, x => Evaluate(EvaluateNode (x)));
 		}
 		public int Int (object obj)
 		{
@@ -391,7 +382,7 @@ namespace LevelScript {
 		dynamic Call (object function, dynamic [] parameters)
 		{
 
-			//dynamic func = EvaluateNode (function);
+			function = Evaluate (function);
 			switch (function) {
 			case Method scriptedMethod:
 				return Run (scriptedMethod, parameters);
@@ -455,8 +446,6 @@ namespace LevelScript {
 			{
 				scopes = new List<Dictionary<string, dynamic>> ();
 			}
-
-
 			public dynamic this [string key] {
 				get { return Get (key); }
 				set { Set (key, value, true); }
