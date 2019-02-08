@@ -15,11 +15,11 @@ namespace LevelScript {
 		public static List<dynamic> Lex (string input)
 		{
 			var tokens = Tokenize (input).ToList ();
-			Print (tokens);
+//			Print (tokens);
 			tokens = Process (tokens).ToList ();
-			Print (tokens);
+//			Print (tokens);
 			tokens = ExtractCodeBlocks (tokens.ToList ()).ToList (); // This also shunts the code blocks, but not the parent scope
-			Print (tokens);
+//			Print (tokens);
 			return tokens;
 		}
 		public static List<dynamic> ExtractCodeBlocks (List<dynamic> tokens) {
@@ -149,7 +149,7 @@ namespace LevelScript {
 			SubmitToken (); // submit last token
 			void SubmitToken (dynamic otherToken = null)
 			{
-				Debug.Log (token);
+//				Debug.Log (token);
 				if (type == TokenType.String)
 					tokens.Add (token);
 				else if (token == " " || token == "") { } else if (type == TokenType.Number)
@@ -173,7 +173,8 @@ namespace LevelScript {
 					case "elif": tokens.Add (Operators.Elif); break;
 					case "for": tokens.Add (Operators.For); break;
 					case "while": tokens.Add (Operators.While); break;
-					case "return": tokens.Add (Operators.Return); break;
+					//case "return": tokens.Add (Operators.Return); break;
+					//case "wait": tokens.Add (Operators.Wait); break;
 					default: tokens.Add (new WORD (token)); break;
 					}
 
@@ -524,11 +525,12 @@ namespace LevelScript {
 		 }
 
 		public  static bool CompareOperators(Operators op1, Operators op2)
-		 {
+		{
 			 return operators[op1].RightAssociative ? operators [op1].Precedence < operators [op2].Precedence : operators [op1].Precedence <= operators [op2].Precedence;
 		 }
-		 //private bool CompareOperators(string op1, string op2) => CompareOperators(operators[op1], operators[op2]);
-	 
+
+		//private bool CompareOperators(string op1, string op2) => CompareOperators(operators[op1], operators[op2]);
+
 		public static IDictionary<Operators, OperatorInfo> operators = new Dictionary<Operators, OperatorInfo> {
 			// Arithmetic
 			[Operators.Plus] = new OperatorInfo { Text = "+", Precedence = 3 },
@@ -565,6 +567,7 @@ namespace LevelScript {
 			[Operators.For] = new OperatorInfo { Text = "for", Precedence = 7, RightAssociative = false },
 			[Operators.While] = new OperatorInfo { Text = "for", Precedence = 7, RightAssociative = false },
 			[Operators.Return] = new OperatorInfo { Text = "return", Precedence = 7, RightAssociative = false },
+			[Operators.Wait] = new OperatorInfo { Text = "wait", Precedence = 7, RightAssociative = false },
 			//[Operators.While] = new OperatorInfo { Text = "while", Precedence = 7, RightAssociative = false },
 		};
 		public static IDictionary<string, OperatorPhraseInfo> operatorPhraseInfo = new Dictionary<string, OperatorPhraseInfo> {

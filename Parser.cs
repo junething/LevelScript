@@ -32,7 +32,7 @@ namespace LevelScript {
 								if (tok is Token.Operators) {
 									HandleOperatorOrKeyword (tok);
 								}
-								//tree.Push(tok);
+							//tree.Push(tok);
 						}
 						tree.Push (token);
 						break;
@@ -127,7 +127,7 @@ namespace LevelScript {
 				}
 			}
 			code.Reverse ();
-			print (show (code), Color.red);
+//			print (show (code), Color.red);
 			return new Code(code.ToArray ());
 			//<summary> If an operator is not provided will take it from the stack </summary>
 			void HandleOperatorOrKeyword (dynamic token = null)
@@ -160,9 +160,23 @@ namespace LevelScript {
 							parameterArray = ((List)parameters).items.ToArray ();
 						else
 							parameterArray = new Node [] { parameters };
-
-						//					print (show (node));
-						tree.Push (new Call (function, parameterArray));
+						if (function is Word) {
+							switch (((Word)function).word) {
+							case "return":
+								tree.Push (new Return (parameterArray[0]));
+								break;
+							case "wait":
+								tree.Push (new Wait (parameterArray [0]));
+								break;
+							case "untill":
+								tree.Push (new Until (parameterArray [0]));
+								break;
+							default:
+								tree.Push (new Call (function, parameterArray));
+								break;
+							}
+						} else
+							tree.Push (new Call (function, parameterArray));
 					}
 				break;
 				case Token.Operators.If: {
@@ -182,7 +196,7 @@ namespace LevelScript {
 					}
 				break;
 				case Token.Operators.Else: {
-						Code body = tree.Pop ();
+						Code body = tree.Pop ().code [0];
 						if (tree.Peek () is Token.Punctuation && tree.Peek () == Token.Punctuation.Newline)
 							tree.Pop ();
 						((If)tree.Peek ()).@else = body;
@@ -216,14 +230,11 @@ namespace LevelScript {
 						tree.Push (new Access (obj, member));
 					}
 					break;
-				case Token.Operators.Return: {
-						tree.Push (new Return (tree.Pop ()));
-					}
-					break;
 				default:
 					var two = tree.Pop ();
 					var one = tree.Pop ();
-					//		print (show (node));
+//							print (show (one));
+//					print (show (two));
 					tree.Push (new Operator (token, one, two, new DebugInfo (line)));
 					break;
 				
@@ -250,14 +261,15 @@ namespace LevelScript {
 			else
 				return node.value.ToString ();
 		}
-		public static string show (Word node)
-		{
-			return node.word;
-		}
 		public static string show (Call node)
 		{
 
 			return $"{ show(node.function) } @ ( { string.Join(", ", Array.ConvertAll(node.parameters, show)) } )";
+		}
+		public static string show (Code node)
+		{
+
+			return  string.Join ("\n ", Array.ConvertAll (node.code, show));
 		}
 		public static string show (List<Node> nodes)
 		{
@@ -273,24 +285,34 @@ namespace LevelScript {
 		}
 		public static string show (Node node)
 		{
-			if (node is Operator)
-				return show ((Operator)node);
-			if (node is Const)
-				return show((Const)node);
-			if (node is Word)
-				return show ((Word)node);
-			if (node is Definition)
-				return show ((Definition)node);
-			if (node is Call)
-				return show ((Call)node);
-			if (node is Access)
-				return show ((Access)node);
-			if (node is If)
-				return show ((If)node);
-			return node.ToString();
+			switch (node) {
+			case Operator @operator:
+				return show (@operator);
+			case Const con:
+				return show (con);
+			case Word w:
+				return w.word;
+			case Definition d:
+				return show (d);
+			case Call c:
+				return show (c);
+			case Access a:
+				return show (a);
+			case If i:
+				return show (i);
+			case Code c:
+				return show (c);
+			case Return r:
+				return "return " + show(r._return);
+			case Wait w:
+				return "wait " + show (w.obj);
+			default:
+				return node.ToString () + "*";
+		}
 		}
 	}
 	public class Node {
+		public bool awaitable;
 		public class Operator : Node {
 			public Token.Operators @operator;
 			public Node OperandOne;
@@ -306,6 +328,13 @@ namespace LevelScript {
 			}
 
 		}
+		public class Until : Node {
+			public Node condition;
+			public Until (Node condition)
+			{
+				this.condition = condition;
+			}
+		}
 		public class Unary : Node {
 			public Token.Operators @operator;
 			public Node OperandOne;
@@ -319,11 +348,13 @@ namespace LevelScript {
 			}
 		}
 		public class If : Node {
+
 			public readonly Node condition;
 			public readonly Code body;
 			public Node @else;
 			public If (Node condition, Code body, Node @else = null)
 			{
+				awaitable = true;
 				this.condition = condition;
 				this.body = body;
 				this.@else = @else;
@@ -336,11 +367,27 @@ namespace LevelScript {
 				this._return = _return;
 			}
 		}
+		public class Wait : Node {
+			public Node obj;
+			public Wait (Node await)
+			{
+				awaitable = true;
+				this.obj = await;
+			}
+		}
+		public class Start : Node {
+			public Node asyncMethod;
+			public Start (Node asyncMethod)
+			{
+				this.asyncMethod = asyncMethod;
+			}
+		}
 		public class While : Node {
 			public readonly Node condition;
 			public readonly Code body;
 			public While (Node condition, Code body)
 			{
+				awaitable = true;
 				this.condition = condition;
 				this.body = body;
 			}
@@ -352,6 +399,7 @@ namespace LevelScript {
 			public readonly Code body;
 			public For (string variable, Node list, Code body)
 			{
+				awaitable = true;
 				this.variable = variable;
 				this.list = list;
 				this.body = body;
@@ -390,10 +438,12 @@ namespace LevelScript {
 			public readonly Node[] code;
 			public Code (Node[] code)
 			{
+				awaitable = true;
 				this.code = code;
 			}
 			public Code (Node code)
 			{
+				awaitable = true;
 				this.code = new Node[1];
 				this.code [0] = code;
 			}
@@ -403,6 +453,7 @@ namespace LevelScript {
 			public Node[] parameters;
 			public Call (Node function, Node[] parameters)
 			{
+				//awaitable = true;
 				this.function = function;
 				this.parameters = parameters;
 			}

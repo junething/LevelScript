@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using static LevelScript.Node;
@@ -11,34 +10,50 @@ using static Jarrah.Debug;
 using System.Reflection;
 namespace LevelScript {
 	public class Runtime {
+		public int maxLoopingOrRecursion = 1000;
 		Heap heap;
 		public Runtime () {
 			heap = new Heap ();
 			heap.Enter ();
 			heap ["print"] = GetType ().GetMethod ("Print");
-			//			print (heap ["print"]);
 			heap ["int"] = GetType ().GetMethod ("Int");
 			heap ["float"] = GetType ().GetMethod ("Float");
 			heap ["str"] = GetType ().GetMethod ("Str");
 			heap ["destroy"] = GetType ().GetMethod ("Destroy");
 			heap ["vector"] = GetType ().GetMethod ("Vector");
 		}
-
-		public void Go (Code code)
+		public async Task seconds (float seconds)
 		{
-			Run (code);
+			await Task.Delay (TimeSpan.FromSeconds (seconds));
+		}
+		public async Task frames (int frames)
+		{
+			await Task.Delay (TimeSpan.FromSeconds (1));
+		}
+		public async void Go (Code code)
+		{
+			await RunAsync (code);
 		}
 
-		public dynamic Run (Code code, bool scopeMade = false)
+		public async Task<dynamic> RunAsync (Code code, bool scopeMade = false)
 		{
-			heap.Enter ();
+			if(!scopeMade)
+				heap.Enter ();
 			foreach (Node node in code.code) {
-				dynamic result = EvaluateNode (node);
-				//print (result + "]]]");
-				//print (node);
-				if (result is ReturnValue) {
-					heap.Exit ();
-					return ((ReturnValue)result);
+				if (node.awaitable) {
+					//print ($"waiting for {node}");
+					dynamic result = await EvaluateNodeAsync (node);
+					if (result is ReturnValue) {
+						heap.Exit ();
+						return ((ReturnValue)result);
+					}
+				} else {
+					//print ($"not waiting for {node}");
+					dynamic result = EvaluateNode (node);
+					if (result is ReturnValue) {
+						heap.Exit ();
+						return ((ReturnValue)result);
+					}
 				}
 			}
 			heap.Exit ();
@@ -50,12 +65,41 @@ namespace LevelScript {
 			for (int p = 0; p < method.parameters.Length; p++)
 				heap [method.parameters [p]] = parameters [p];
 			foreach (Node node in method.code.code) {
-				//				print (Parser.show (node));
 				dynamic result = EvaluateNode (node);
-				//print (result + ";");
 				if (result is ReturnValue) {
 					heap.Exit ();
 					return ((ReturnValue)result).value;
+				}
+			}
+			heap.Exit ();
+			return null;
+		}
+		public async Task<dynamic> RunAsync (Method method, dynamic [] parameters)
+		{
+			heap.Enter ();
+			for (int p = 0; p < method.parameters.Length; p++)
+				heap [method.parameters [p]] = parameters [p];
+			return await RunAsync (method.code, true);
+		}
+		public dynamic Run (Code code, bool scopeMade = false)
+		{
+			if (!scopeMade)
+				heap.Enter ();
+			foreach (Node node in code.code) {
+				if (node.awaitable) {
+					//print ($"waiting for {node}");
+					dynamic result = EvaluateNode (node);
+					if (result is ReturnValue) {
+						heap.Exit ();
+						return ((ReturnValue)result);
+					}
+				} else {
+					//print ($"not waiting for {node}");
+					dynamic result = EvaluateNode (node);
+					if (result is ReturnValue) {
+						heap.Exit ();
+						return ((ReturnValue)result);
+					}
 				}
 			}
 			heap.Exit ();
@@ -81,19 +125,13 @@ namespace LevelScript {
 				return null;
 			case Operator operation:
 				return Operate (operation.OperandOne, operation.OperandTwo, operation.@operator);
-			case Call call:
-//				print (Parser.show (call));
-//				print (((Word)call.function).word);
-				return Call (EvaluateNode(call.function), EvaluateNode (call.parameters));
+			
 			case List list:
 				return EvaluateNode (list.items);
 			case Const @const:
 				return /*(@const.value is Const) ? EvaluateNode(@const.value) :*/ @const.value;
 			case Word word:
 				return heap [word.word];
-			case Code code:
-				Run (code);
-				return null;
 			case Index index:
 				return EvaluateNode(index.list) [EvaluateNode(index.key)];
 			case Access access:
@@ -101,6 +139,13 @@ namespace LevelScript {
 			case Return _return:
 //				print (EvaluateNode(_return._return));
 				return new ReturnValue (EvaluateNode (_return._return));
+			/*case Code code:
+				Run (code);
+				return null;*/
+			case Call call:
+				//				print (Parser.show (call));
+				//				print (((Word)call.function).word);
+				return Call (EvaluateNode (call.function), EvaluateNode (call.parameters));
 			case If @if:
 				dynamic evaluation = EvaluateNode (@if.condition);
 				//				print (evaluation);
@@ -116,7 +161,7 @@ namespace LevelScript {
 				while (EvaluateNode (@while.condition)) {
 					loops++;
 					Run (@while.body);
-					if (loops > 100)
+					if (loops > maxLoopingOrRecursion)
 						throw new Exception ("Too much looping");
 				}
 				return null;
@@ -130,6 +175,13 @@ namespace LevelScript {
 				}
 				heap.Exit ();
 				return null;
+			case Start start:
+				if (start.asyncMethod is Call) {
+					EvaluateNodeAsync (start.asyncMethod).WrapErrors ();
+				}
+				return null;
+			case Wait wait:
+				throw new Exception ($"Cannot wait in a function that has not been called with wait");
 			}
 			throw new Exception ($"{node} has not been evaluated!");
 		}
@@ -139,26 +191,29 @@ namespace LevelScript {
 				heap.Enter ();
 			}
 			switch (node) {
-
-			case Call call:
-				return Call (EvaluateNode (call.function), EvaluateNode (call.parameters));
 			case Code code:
-				Run (code);
-				return null;
+				return await RunAsync (code);
+			case Call call:
+				//								print (Parser.show (call));
+				//				print (((Word)call.function).word);
+				return await CallAsync (EvaluateNode (call.function), EvaluateNode (call.parameters));
 			case If @if:
 				dynamic evaluation = EvaluateNode (@if.condition);
+				//				print (evaluation);
 				if (evaluation) {
-					Run (@if.body);
+					return await RunAsync (@if.body);
 				} else if (@if.@else != null)
-					EvaluateNode (@if.@else);
-				return null;
+					return await EvaluateNode (@if.@else);
+				return 9;
 			case While @while:
+
 				print (Parser.show (@while.condition));
 				int loops = 0;
 				while (EvaluateNode (@while.condition)) {
 					loops++;
-					Run (@while.body);
-					if (loops > 100)
+					dynamic result = await RunAsync (@while.body);
+					if (result is ReturnValue) return result;
+					if (loops > maxLoopingOrRecursion)
 						throw new Exception ("Too much looping");
 				}
 				return null;
@@ -166,10 +221,38 @@ namespace LevelScript {
 				heap.Enter ();
 				foreach (dynamic var in EvaluateNode (@for.list)) {
 					heap [@for.variable] = var;
-					Run (@for.body);
+					dynamic result = await RunAsync (@for.body);
+					if (result is ReturnValue) return result;
 				}
 				heap.Exit ();
 				return null;
+			case Wait wait:
+				if (wait.obj is Call)
+					await EvaluateNodeAsync (wait.obj);
+				else if (wait.obj is Until) {
+					loops = 0;
+					Node condition = ((Until)wait.obj).condition;
+					while (EvaluateNode (condition)) {
+						loops++;
+						await Task.Yield ();
+						if (loops > maxLoopingOrRecursion)
+							throw new Exception ("Too much looping");
+					}
+				} else {
+					object obj = EvaluateNode (wait.obj);
+					if (obj is float || obj is int) {
+						double seconds = Convert.ToDouble (obj);
+						await Task.Delay (TimeSpan.FromSeconds (seconds));
+					}
+				}
+				return null;
+			case Start start:
+				if (start.asyncMethod is Call) {
+					EvaluateNodeAsync (start.asyncMethod).WrapErrors();
+				}
+				return null;
+			case Until until:
+				throw new Exception ("`until` can only be used in conjunction with `wait`");
 			}
 			throw new Exception ($"{node} has not been evaluated!");
 		}
@@ -236,17 +319,17 @@ namespace LevelScript {
 				member.SetValue (obj, two);
 				return two;
 			}
-				throw new Exception ("could not assign");
+			throw new Exception ("could not assign");
 		}
 		dynamic Access (dynamic one, string two, bool GetValue = true)
 		{
 			one = EvaluateNode (one);
-//			print ($"Finding member: '{two}' on '{one}'");
+			//			print ($"Finding member: '{two}' on '{one}'");
 			if (one.GetType ().GetMethod (two) != null) {
 				return new InstanceMethodInfo (one.GetType ().GetMethod (two), one);
 			}
 			if (one.GetType ().GetField (two) != null) {
-				if(GetValue)
+				if (GetValue)
 					return one.GetType ().GetField (two).GetValue (one);
 				return one.GetType ().GetField (two);
 			} else if (one.GetType ().GetProperty (two) != null) {
@@ -259,16 +342,16 @@ namespace LevelScript {
 		}
 		public List<dynamic> EvaluateNode (List<Node> node)
 		{
-			return node.ConvertAll (x => EvaluateNode(x));
+			return node.ConvertAll (x => EvaluateNode (x));
 		}
-		public dynamic EvaluateCode (Code code)
+		/*public dynamic EvaluateCode (Code code)
 		{
 			dynamic [] nodes = Array.ConvertAll (code.code, x => EvaluateNode (x));
 			foreach(dynamic node in nodes) {
 //				print (node);
 			}
 			return nodes[0];
-		}
+		}*/
 		public dynamic EvaluateNode (Node [] nodes)
 		{
 			return Array.ConvertAll (nodes, x => EvaluateNode (x));
@@ -286,9 +369,9 @@ namespace LevelScript {
 					return outInt;
 				break;
 			}
-			throw new Exception (obj.ToString() + " cannot be converted to an int");
+			throw new Exception (obj.ToString () + " cannot be converted to an int");
 		}
-		public void Print(object obj) { print (">>>" + obj); }
+		public void Print (object obj) { print (">>>" + obj); }
 		public float Float (object obj)
 		{
 			switch (obj) {
@@ -316,10 +399,23 @@ namespace LevelScript {
 				return cSharpMethod.Invoke (this, parameters);
 			case InstanceMethodInfo cSharpMethod:
 				return cSharpMethod.methodInfo.Invoke (cSharpMethod.instance, parameters);
-				
 			}
 			throw new Exception ($"Could not call '{function}'");
 		}
+		async Task<dynamic> CallAsync (object function, dynamic [] parameters)
+		{
+			//dynamic func = EvaluateNode (function);
+			switch (function) {
+			case Method scriptedMethod:
+				return await RunAsync (scriptedMethod, parameters);
+			case MethodInfo cSharpMethod:
+				return cSharpMethod.Invoke (this, parameters);
+			case InstanceMethodInfo cSharpMethod:
+				return cSharpMethod.methodInfo.Invoke (cSharpMethod.instance, parameters);
+			}
+			throw new Exception ($"Could not call '{function}'");
+		}
+	
 
 		/*void AssignVar (string variable, dynamic value)
 		{
@@ -340,7 +436,7 @@ namespace LevelScript {
 			}
 			throw new Exception ($"[404]: Varaible '{word.word}' could not be found.");
 		}*/
-	  	public class InstanceMethodInfo {
+		public class InstanceMethodInfo {
 			public MethodInfo methodInfo;
 			public object instance;
 			public InstanceMethodInfo (MethodInfo methodInfo, object instance)
