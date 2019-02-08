@@ -106,7 +106,6 @@ namespace LevelScript {
 			if (!scopeMade) {
 				heap.Enter ();
 			}
-//			print (Parser.show (node));
 			switch (node) {
 			case Definition definition:
 //				print (": " + definition.name);
@@ -118,7 +117,7 @@ namespace LevelScript {
 			case List list:
 				return EvaluateNode (list.items);
 			case Const @const:
-				return /*(@const.value is Const) ? EvaluateNode(@const.value) :*/ @const.value;
+				return  @const.value;
 			case Word word:
 				return heap [word.word];
 			case Index index:
@@ -126,18 +125,14 @@ namespace LevelScript {
 			case Access access:
 				return Access (access.obj, access.member);
 			case Return _return:
-//				print (EvaluateNode(_return._return));
 				return new ReturnValue (EvaluateNode (_return._return));
 			/*case Code code:
 				Run (code);
 				return null;*/
 			case Call call:
-				//				print (Parser.show (call));
-				//				print (((Word)call.function).word);
 				return Call (EvaluateNode (call.function), EvaluateNode (call.parameters));
 			case If @if:
 				dynamic evaluation = EvaluateNode (@if.condition);
-				//				print (evaluation);
 				if (evaluation) {
 					return Run (@if.body);
 				} else if (@if.@else != null)
@@ -157,9 +152,7 @@ namespace LevelScript {
 			case For @for:
 				heap.Enter ();
 				foreach (dynamic var in EvaluateNode(@for.list)) {
-//					print ($"{@for.variable} = {Parser.show(var)}");
 					heap [@for.variable] = var;
-//					print (Parser.show (@for.body.code [0]));
 					Run (@for.body);
 				}
 				heap.Exit ();
@@ -183,12 +176,9 @@ namespace LevelScript {
 			case Code code:
 				return await RunAsync (code);
 			case Call call:
-				//								print (Parser.show (call));
-				//				print (((Word)call.function).word);
 				return await CallAsync (EvaluateNode (call.function), EvaluateNode (call.parameters));
 			case If @if:
 				dynamic evaluation = EvaluateNode (@if.condition);
-				//				print (evaluation);
 				if (evaluation) {
 					return await RunAsync (@if.body);
 				} else if (@if.@else != null) {
@@ -196,7 +186,6 @@ namespace LevelScript {
 				}
 				return 9;
 			case While @while:
-
 				print (Parser.show (@while.condition));
 				int loops = 0;
 				while (EvaluateNode (@while.condition)) {
@@ -248,7 +237,7 @@ namespace LevelScript {
 		}
 		dynamic Operate (Node operandOne, Node operandTwo, Operators @operator)
 		{
-			//				print ($".{Parser.show(operandOne)} {@operator} {Parser.show (operandTwo)}");
+			//print ($".{Parser.show(operandOne)} {@operator} {Parser.show (operandTwo)}");
 			dynamic one;
 			if (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign)
 				one = EvaluateNode (operandOne);
@@ -335,14 +324,6 @@ namespace LevelScript {
 		{
 			return node.ConvertAll (x => Evaluate(EvaluateNode (x)));
 		}
-		/*public dynamic EvaluateCode (Code code)
-		{
-			dynamic [] nodes = Array.ConvertAll (code.code, x => EvaluateNode (x));
-			foreach(dynamic node in nodes) {
-//				print (node);
-			}
-			return nodes[0];
-		}*/
 		public dynamic EvaluateNode (Node [] nodes)
 		{
 			return Array.ConvertAll (nodes, x => Evaluate(EvaluateNode (x)));
@@ -395,7 +376,6 @@ namespace LevelScript {
 		}
 		async Task<dynamic> CallAsync (object function, dynamic [] parameters)
 		{
-			//dynamic func = EvaluateNode (function);
 			switch (function) {
 			case Method scriptedMethod:
 				return await RunAsync (scriptedMethod, parameters);
@@ -406,27 +386,6 @@ namespace LevelScript {
 			}
 			throw new Exception ($"Could not call '{function}'");
 		}
-	
-
-		/*void AssignVar (string variable, dynamic value)
-		{
-			print ($"Set {variable} to {value}");
-			foreach (var scope in TheHEAP) {
-				if (scope.ContainsKey (variable)) {
-					scope [variable] = value;
-					return;
-				}
-			}
-			TheHEAP [TheHEAP.Count - 1].Add (variable, value);
-		}
-		dynamic GetVar (Word word)
-		{
-			foreach (var scope in TheHEAP) {
-				if (scope.ContainsKey (word.word))
-					return scope [word.word];
-			}
-			throw new Exception ($"[404]: Varaible '{word.word}' could not be found.");
-		}*/
 		public class InstanceMethodInfo {
 			public MethodInfo methodInfo;
 			public object instance;
