@@ -65,7 +65,6 @@ namespace LevelScript {
 			string token = "";
 			foreach (char ch in code) {
 				(bool yes, Token.Punctuation symbol) potentialSymbol = IsSymbol (ch.ToString ());
-				(bool yes, Operators @operator) potentialOperator = IsOperator (ch.ToString ());
 
 				if (escape) {
 					if (escapeChars.ContainsKey (ch))
@@ -77,9 +76,9 @@ namespace LevelScript {
 					if (inComment)
 						inComment = false;
 					else {
-						if (closeParenthesisToAddNextNewLine > 0) {
-							for (int p = 0; p < closeParenthesisToAddNextNewLine; p++)
-								SubmitToken (Punctuation.ParenthesisClose);
+						while (closeParenthesisToAddNextNewLine > 0) {
+							SubmitToken (Punctuation.ParenthesisClose);
+							closeParenthesisToAddNextNewLine--;
 						}
 						SubmitToken (Punctuation.Newline);
 					}
@@ -152,6 +151,10 @@ namespace LevelScript {
 					token += ch;
 				}
 			}
+			while (closeParenthesisToAddNextNewLine > 0) {
+				SubmitToken (Punctuation.ParenthesisClose);
+				closeParenthesisToAddNextNewLine--;
+			}
 			SubmitToken (); // submit last token
 			void SubmitToken (dynamic otherToken = null)
 			{
@@ -182,9 +185,13 @@ namespace LevelScript {
 					//case "return": tokens.Add (Operators.Return); break;
 					//case "wait": tokens.Add (Operators.Wait); break;
 					default:
-						//if (IsKeyword (token))
-						//	tokens.Add (Punctuation.ParenthesisOpen);
-						tokens.Add (new WORD (token));
+						(bool isKeyword, Keywords keyword) = IsKeyword (token);
+						if (isKeyword) {
+							closeParenthesisToAddNextNewLine++;
+							tokens.Add (keyword);
+							tokens.Add (Punctuation.ParenthesisOpen);
+						} else 
+							tokens.Add (new WORD (token));
 						break;
 					}
 
@@ -211,24 +218,14 @@ namespace LevelScript {
 				default: return (false, Token.Punctuation.None);
 				}
 			}
-			(bool, Operators) IsOperator (string oper)
+			(bool, Keywords) IsKeyword (string oper)
 			{
 				switch (oper) {
-				case "+":	return (true, Operators.Plus);
-				case "-":	return (true, Operators.Minus);
-				case "*":	return (true, Operators.Multiply);
-				case "/":	return (true, Operators.Divide);
-				case "%":	return (true, Operators.Modulus);
-				case ".":	return (true, Operators.Access);
-				case "..":	return (true, Operators.Range);
-				case "=": return (true, Operators.Assign);
-				case "@": return (true, Operators.Invoke);
-				case "<": return (true, Operators.LesserThan);
-				case ">": return (true, Operators.GreaterThan);
-				default:	return (false, Operators.None);
+				case "return": return (true, Keywords.Return);
+				case "await": return (true, Keywords.Wait);
+				default: return (false, Keywords.None);
 				}
 			}
-		
 			#endregion
 			return tokens;
 		}
@@ -239,14 +236,29 @@ namespace LevelScript {
 			{
 				if (obj is Punctuation && (obj == Punctuation.ParenthesisClose || obj == Punctuation.SquareClose))
 					return true;
-				if (obj is WORD)
+				if (obj is WORD || obj is Keywords)
 					return true;
+				return false;
+			}
+			bool IsIndexable (dynamic obj)
+			{
+				if (IsObject (obj) || obj is string) return true;
+				return false;
+			}
+			bool IsOneOf (object obj, params object[] matches)
+			{
+				foreach (object match in matches) {
+					if (match is Type type && obj.GetType() == type)
+						return true;
+			  		else if (obj.GetType () == match.GetType() && obj == match)
+							return true;
+				}
 				return false;
 			}
 			for (int i=0; i < tokens.Count - 1; i++) {
 				switch (tokens [i]) {
 				case Token.Punctuation s:
-					if (s == Token.Punctuation.SquareOpen && i > 0 && IsObject (tokens [i-1])) {
+					if (s == Token.Punctuation.SquareOpen && i > 0 && IsIndexable (tokens [i-1])) {
 						tokens [i] = Operators.Index;
 						tokens.Insert (++i, Token.Punctuation.ParenthesisOpen);
 						for (int j = i; j < tokens.Count; j++) {
@@ -259,7 +271,7 @@ namespace LevelScript {
 					if (s == Token.Punctuation.ParenthesisOpen && i > 0 && IsObject (tokens [i - 1])) {
 						tokens [i] = Token.Punctuation.SquareOpen;
 						if (!(i > 1 && tokens [i - 2] is Operators && tokens [i - 2] == Operators.Define)) {
-							Debug.Log (8888);
+//							Debug.Log (8888);
 							tokens.Insert (i, Operators.Invoke);
 
 						}
@@ -280,7 +292,8 @@ namespace LevelScript {
 						}
 					}
 					break;
-				case WORD w:
+				case Keywords keywords:
+
 					break;
 				case Operators op:
 					if (op == Operators.If || op == Operators.While || op == Operators.Elif) {

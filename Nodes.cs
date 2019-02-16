@@ -11,6 +11,7 @@ namespace LevelScript
 			public Operator (Token.Operators op, Node one, Node two, DebugInfo debug)
 			{
 				//	Parser.log ($":{one} {op.ToString ()} {two}");
+				awaitable = true;
 				@operator = op;
 				OperandOne = one;
 				OperandTwo = two;
@@ -143,7 +144,7 @@ namespace LevelScript
 			public Node [] parameters;
 			public Call (Node function, Node [] parameters)
 			{
-				//awaitable = true;
+				awaitable = true;
 				this.function = function;
 				this.parameters = parameters;
 			}

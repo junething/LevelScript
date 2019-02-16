@@ -37,8 +37,15 @@ namespace LevelScript {
 						tree.Push (token);
 						break;
 					case Token.Punctuation.Comma:
-						while (!Compare (stack.Peek (), Token.Punctuation.ParenthesisOpen))
-							tree.Push( stack.Pop ());
+						//while (!Compare (stack.Peek (), Token.Punctuation.ParenthesisOpen))
+						//	tree.Push( stack.Pop ());
+						while (!Compare (stack.Peek (), Token.Punctuation.ParenthesisOpen) && !Compare (stack.Peek (), Token.Punctuation.Comma)) {
+							if (stack.Peek () is Token.Operators) {
+								HandleOperatorOrKeyword ();
+							} else {
+								tree.Push (stack.Pop ());
+							}
+						}
 						break;
 					case Token.Punctuation.Terminate:
 						tree.Push (token);
@@ -61,6 +68,7 @@ namespace LevelScript {
 						stack.Pop ();
 						var list = new List<Node> ();
 						while (!Compare (tree.Peek (), Token.Punctuation.SquareOpen)) {
+//							print (tree.Peek ());
 							list.Add (tree.Pop ());
 						}
 						tree.Pop ();
@@ -160,16 +168,17 @@ namespace LevelScript {
 							parameterArray = ((List)parameters).items.ToArray ();
 						else
 							parameterArray = new Node [] { parameters };
-						if (function is Word) {
-							switch (((Word)function).word) {
-							case "return":
-								tree.Push (new Return (parameterArray[0]));
-								break;
-							case "wait":
-								tree.Push (new Wait (parameterArray [0]));
-								break;
-							case "untill":
-								tree.Push (new Until (parameterArray [0]));
+						if (function is Const) {
+							switch (((Const)function).value) {
+							case Token.Keywords keyword:
+								switch(keyword) {
+								case Token.Keywords.Return:
+									tree.Push (new Return (parameterArray [0]));
+									break;
+								case Token.Keywords.Wait:
+									tree.Push (new Wait (parameterArray [0]));
+									break;
+								}
 								break;
 							default:
 								tree.Push (new Call (function, parameterArray));
@@ -199,7 +208,15 @@ namespace LevelScript {
 						Code body = tree.Pop ().code [0];   /// HACK: Nani The Fuck????
 						if (tree.Peek () is Token.Punctuation && tree.Peek () == Token.Punctuation.Newline)
 							tree.Pop ();
-						((If)tree.Peek ()).@else = body;
+						if(tree.Peek() is If @if) {
+							if (@if.@else == null)
+								@if.@else = body;
+							else if (@if.@else is If elif)
+								elif.@else = body;
+							else
+								throw new Exception ("Unexpexed else statement");
+						}
+					
 					}
 					break;
 				case Token.Operators.For: {
@@ -281,7 +298,7 @@ namespace LevelScript {
 		}
 		public static string show (If node)
 		{
-			return $"if {show(node.condition)} then {show(node.body)})";
+			return $"if {show(node.condition)} then {show(node.body)} else {show(node.@else)})";
 		}
 		public static string show (Node node)
 		{
@@ -305,7 +322,7 @@ namespace LevelScript {
 			case Return r:
 				return "return " + show(r._return);
 			case Wait w:
-				return "wait " + show (w.obj);
+				return "(wait " + show (w.obj) + ")";
 			default:
 				return node.ToString () + "*";
 		}
