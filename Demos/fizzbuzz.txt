@@ -1,0 +1,14 @@
+﻿# FizzBuzz
+for i in 0..100:
+	out = ""
+	if i % 3 == 0:
+		out += "fizz"
+	end
+	if i % 5 == 0:
+		out += "buzz"
+	end
+	if out == "":
+		out = i
+	end
+	print(out)
+end

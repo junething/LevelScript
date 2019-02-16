@@ -1,0 +1,17 @@
+﻿list = [1, 1]
+iterations = 0
+max_iterations = 20
+def fib (one, two):
+    iterations += 1
+    three = one + two
+    list.Add(three)
+    if iterations < max_iterations:
+        fib(two, three)
+    end
+end
+fib(1,1)
+string = ""
+for num in list:
+string += num + ", "
+end
+print(string)
