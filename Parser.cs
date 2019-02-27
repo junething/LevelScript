@@ -10,7 +10,7 @@ using static LevelScript.Node;
 using static LevelScript.Logging;
 using static LevelScript.Extensions;
 using static UnityEngine.MonoBehaviour;
-using static Jarrah.Debug;
+//using Jarrah;
 namespace LevelScript {
 	public class Parser {
 		public static Code Parse (List<dynamic> tokens, TextMesh textMesh = null)
@@ -19,7 +19,7 @@ namespace LevelScript {
 			var stack = new Stack<dynamic> ();
 			int line = 0;
 			foreach (var token in tokens) {
-//				print($"{Display(token)} : { token }");
+				print($"{Display(token)} : { token }");
 				switch (token) {
 				case Token.Punctuation s:
 					switch (s) {
@@ -221,7 +221,7 @@ namespace LevelScript {
 					break;
 				case Token.Operators.For: {
 						//					print (show (tree.Peek()));
-						Code body = tree.Pop ().code [0];   // HACK: This is concerning 
+						Code body = Ensure<Code>( tree.Pop ()).code [0];   // HACK: This is concerning 
 						Node list = tree.Pop ();
 						Word variable = tree.Pop ();
 						var node = new For (variable.word, list, body);
@@ -326,6 +326,12 @@ namespace LevelScript {
 			default:
 				return node.ToString () + "*";
 		}
+		}
+		public static T Ensure<T> (Node node)
+		{
+			if (node is T type)
+				return type;
+			throw new Exception ($"Unexpected token `{show(node)}:node`, expecting {typeof(T)}");
 		}
 	}
 

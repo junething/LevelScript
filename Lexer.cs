@@ -271,9 +271,9 @@ namespace LevelScript {
 					if (s == Token.Punctuation.ParenthesisOpen && i > 0 && IsObject (tokens [i - 1])) {
 						tokens [i] = Token.Punctuation.SquareOpen;
 						if (!(i > 1 && tokens [i - 2] is Operators && tokens [i - 2] == Operators.Define)) {
-//							Debug.Log (8888);
+							Debug.Log ((tokens [i]));
+							Debug.Log (tokens[i-1]);
 							tokens.Insert (i, Operators.Invoke);
-
 						}
 						
 
@@ -312,6 +312,7 @@ namespace LevelScript {
 							 if (tokens [j] is Token.Punctuation) {
 								if (tokens [j] == Token.Punctuation.CurlyOpen) {
 									tokens.Insert (j, Token.Punctuation.ParenthesisClose);
+									i++;
 									break;
 								}
 							}
