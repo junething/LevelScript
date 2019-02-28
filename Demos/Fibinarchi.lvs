@@ -1,4 +1,4 @@
-﻿list = [1, 1]
+list = [1, 1]
 iterations = 0
 max_iterations = 20
 def fib (one, two):

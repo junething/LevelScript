@@ -1,8 +1,0 @@
-﻿def fib (one, two):
-    three = one + two
-    print(three)
-    if three < 200:
-        fib(two, three)
-    end
-end
-fib(1,1)
