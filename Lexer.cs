@@ -110,7 +110,7 @@ namespace LevelScript {
 						SubmitToken ();
 						inRegex = false;
 					}
-				} else if (char.IsDigit (ch)) {
+				} else if (char.IsDigit (ch) || (type == TokenType.Number && ch == '.')) {
 					if (type != TokenType.Word) {
 						if (type != TokenType.Number)
 							SubmitToken ();
@@ -223,6 +223,7 @@ namespace LevelScript {
 				switch (oper) {
 				case "return": return (true, Keywords.Return);
 				case "await": return (true, Keywords.Wait);
+				case "start": return (true, Keywords.Start);
 				default: return (false, Keywords.None);
 				}
 			}
@@ -312,6 +313,7 @@ namespace LevelScript {
 							 if (tokens [j] is Token.Punctuation) {
 								if (tokens [j] == Token.Punctuation.CurlyOpen) {
 									tokens.Insert (j, Token.Punctuation.ParenthesisClose);
+									i++;
 									break;
 								}
 							}

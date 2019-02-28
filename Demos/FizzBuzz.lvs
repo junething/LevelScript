@@ -1,4 +1,4 @@
-﻿# FizzBuzz
+# FizzBuzz
 for i in 0..100:
 	out = ""
 	if i % 3 == 0:

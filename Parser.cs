@@ -178,6 +178,9 @@ namespace LevelScript {
 								case Token.Keywords.Wait:
 									tree.Push (new Wait (parameterArray [0]));
 									break;
+								case Token.Keywords.Start:
+									tree.Push (new Start (parameterArray [0]));
+									break;
 								}
 								break;
 							default:

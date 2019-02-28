@@ -1,34 +1,80 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using UnityAsync;
 using UnityEngine;
 using static LevelScript.Node;
 using static LevelScript.Logging;
-using static LevelScript.Extensions;
+using static Jarrah.Strings;
 using static LevelScript.Token;
 using static Jarrah.Debug;
 using System.Reflection;
 namespace LevelScript {
 	public class Runtime {
+		Dictionary<string, dynamic> instanceMembers;
 		public int maxLoopingOrRecursion = 1000;
 		Heap heap;
-		public Runtime () {
-			heap = new Heap ();
-			heap.Enter ();
-			this ["test"] = 9;
-			this ["print"] = GetMethod ("Print", this);
-			this ["int"] = GetMethod ("Int", this);
-			this ["float"] = GetMethod ("Float", this);
-			this ["str"] = GetMethod ("Str", this);
-			this ["destroy"] = GetMethod ("Destroy", this);
-			this ["vector"] = GetMethod ("Vector", this);
-			this ["len"] = GetMethod ("GetLength", this);
+		string input = null;
+		public Runtime (Dictionary<string, dynamic> parentInstanceMembers = null)
+		{
+			instanceMembers = parentInstanceMembers ?? new Dictionary<string, dynamic> ();
 			this ["math"] = typeof (Library.Math);
+			this ["input"] = GetMethod ("GetUserInput", this);
+			this ["wait_for_four"] = GetMethod ("WaitForFour", this);
+			AddAllMembers  (typeof(Library.Crucial));
+			heap = new Heap (this);
+			heap.Enter ();
 		}
-		public class math {
-			public float atan2 (float x, float y) { return Mathf.Atan2 (x, y); }
+		public Runtime (string input, Dictionary<string, dynamic> parentInstanceMembers = null)
+		{
+			instanceMembers = parentInstanceMembers ?? new Dictionary<string, dynamic> ();
+			AddAllMembers (typeof (Library.Crucial));
+			heap = new Heap (this);
+			heap.Enter ();
+			Go (Parser.Parse (Lexer.Lex (input)));
 		}
-		public static InstanceMethodInfo GetMethod(string name, object instance)
+		public void Input (string text)
+		{
+			input = text;
+		}
+		public async Task<string> GetUserInput (string prompt = "")
+		{
+				Call ("print", new dynamic [] { prompt });
+			while (input == null) {
+				//	print ("K" + input + "K");
+				await new WaitForFrames (1);
+			}
+			print ("K" + input + "K");
+			string text = input;
+			
+			input = null;
+			return text;
+		}
+		public async Task<int> WaitForFour ()
+		{
+			await Task.Delay (500);
+			await Task.Delay (500);
+			return 4;
+		}
+		public void AddAllMembers (Type type, bool enforceSnakeCase = true)
+		{
+			MemberInfo [] members = type.GetMembers ();
+			foreach (MemberInfo member in members) {
+				switch (member) {
+				case MethodInfo method:
+					this [method.Name.Snake (enforceSnakeCase)] = new InstanceMethodInfo (method, null);
+//					Debug.Log (method.Name.Snake (enforceSnakeCase));
+					break;
+				case FieldInfo field:
+					this [field.Name.Snake (enforceSnakeCase)] = field.GetValue (null);
+					break;
+				case PropertyInfo property:
+					this [property.Name.Snake (enforceSnakeCase)] = property.GetValue (null);
+					break;
+				}
+			}
+		}
+		public static InstanceMethodInfo GetMethod (string name, object instance)
 		{
 			MethodInfo method = instance.GetType ().GetMethod (name);
 			if (method == null)
@@ -37,7 +83,7 @@ namespace LevelScript {
 		}
 		public static InstanceMethodInfo GetMethod<T> (string name)
 		{
-			return new InstanceMethodInfo (typeof(T).GetMethod (name), null);
+			return new InstanceMethodInfo (typeof (T).GetMethod (name), null);
 		}
 		/*public static InstanceMethodInfo GetStaticMethod (string name, Type type)
 		{
@@ -55,9 +101,17 @@ namespace LevelScript {
 		{
 			await RunAsync (code, exit: false);
 		}
+		public async void Go (string code)
+		{
+			await RunAsync (Parser.Parse(Lexer.Lex(code)), exit: false);
+		}
+		public async Task<dynamic> GoWait (string code)
+		{
+			return await RunAsync (Parser.Parse (Lexer.Lex (code)), exit: false);
+		}
 		public async Task<dynamic> RunAsync (Code code, bool scopeMade = false, bool exit = true)
 		{
-			if(!scopeMade)
+			if (!scopeMade)
 				heap.Enter ();
 			foreach (Node node in code.code) {
 				if (node.awaitable) {
@@ -108,7 +162,7 @@ namespace LevelScript {
 		}
 		public class ReturnValue {
 			public dynamic value;
-			public ReturnValue(dynamic value)
+			public ReturnValue (dynamic value)
 			{
 				this.value = value;
 			}
@@ -126,7 +180,7 @@ namespace LevelScript {
 		{
 			switch (obj) {
 			case Node node:
-				return EvaluateNode(node);
+				return EvaluateNode (node);
 			default:
 				return obj;
 			}
@@ -148,16 +202,16 @@ namespace LevelScript {
 			}
 			switch (node) {
 			case Definition definition:
-//				print (": " + definition.name);
+				//				print (": " + definition.name);
 				heap [definition.name] = new Method (definition.code, definition.parameters, definition.debug);
 				return null;
 			case Operator operation:
 				return HandleOperation (operation.OperandOne, operation.OperandTwo, operation.@operator);
-			
+
 			case List list:
 				return EvaluateNode (list.items);
 			case Const @const:
-				return  @const.value;
+				return @const.value;
 			case Word word:
 				return heap [word.word];
 			case Index index:
@@ -165,7 +219,7 @@ namespace LevelScript {
 			case Access access:
 				return Access (access.obj, access.member);
 			case Return _return:
-				return new ReturnValue( EvaluateNode (_return._return));
+				return new ReturnValue (EvaluateNode (_return._return));
 			/*case Code code:
 				Run (code);
 				return null;*/
@@ -191,7 +245,7 @@ namespace LevelScript {
 				return null;
 			case For @for:
 				heap.Enter ();
-				foreach (dynamic var in EvaluateNode(@for.list)) {
+				foreach (dynamic var in EvaluateNode (@for.list)) {
 					heap [@for.variable] = var;
 					Run (@for.body);
 				}
@@ -215,7 +269,7 @@ namespace LevelScript {
 			}
 			switch (node) {
 			case Operator operation:
-//				print (Parser.show (operation));
+				//				print (Parser.show (operation));
 				dynamic result1 = await HandleOperationAsync (operation.OperandOne, operation.OperandTwo, operation.@operator);
 				//print ("lll   " + result1);
 				return result1;
@@ -255,13 +309,14 @@ namespace LevelScript {
 				return null;
 			case Wait wait:
 				if (wait.obj is Call asyncCall) {
-					return Evaluate (await CallAsync (await EvaluateNodeAsync (asyncCall.function), await EvaluateNodeAsync (asyncCall.parameters)));
+					dynamic result = await CallAsync (await EvaluateNodeAsync (asyncCall.function), await EvaluateNodeAsync (asyncCall.parameters));
+					return Evaluate (result);
 				} else if (wait.obj is Until) {
 					loops = 0;
 					Node condition = ((Until)wait.obj).condition;
 					while (EvaluateNode (condition)) {
 						loops++;
-						await Task.Yield ();
+						await new WaitForFrames (1);
 						if (loops > maxLoopingOrRecursion)
 							throw new Exception ("Too much looping");
 					}
@@ -275,7 +330,13 @@ namespace LevelScript {
 				return null;
 			case Start start:
 				if (start.asyncMethod is Call) {
-					EvaluateNodeAsync (start.asyncMethod).WrapErrors();
+					if (start.asyncMethod is Call startCall) {
+						StartAsync (await EvaluateNodeAsync (startCall.function), await EvaluateNodeAsync (startCall.parameters));
+						return null;
+					} else {
+						await new  WaitForFrames (0);
+					}
+					//EvaluateNodeAsync (start.asyncMethod).WrapErrors ();
 				}
 				return null;
 			case Until until:
@@ -292,13 +353,13 @@ namespace LevelScript {
 		}
 		async Task<dynamic> HandleOperationAsync (Node operandOne, Node operandTwo, Operators @operator)
 		{
-			dynamic one = (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign) ? EvaluateNode (operandOne) : operandOne;
+			dynamic one = (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign) ? await EvaluateNodeAsync (operandOne) : operandOne;
 			dynamic two = await EvaluateNodeAsync (operandTwo);
 			return Operate (one, two, @operator);
 		}
 		dynamic Operate (dynamic one, dynamic two, Operators @operator)
 		{
-		//	print ($"{one} {@operator} {two}");
+			//	print ($"{one} {@operator} {two}");
 			switch (@operator) {
 			// Math
 			case Operators.Plus: return one + two;
@@ -344,9 +405,9 @@ namespace LevelScript {
 			case Access access:
 				dynamic obj = EvaluateNode (access.obj);
 				dynamic member = Access (access.obj, access.member, false);
-//				print (member);
-//				print (obj);
-//				print (two);
+				//				print (member);
+				//				print (obj);
+				//				print (two);
 				member.SetValue (obj, two);
 				return two;
 			}
@@ -356,30 +417,24 @@ namespace LevelScript {
 		{
 			dynamic collection = EvaluateNode (collectionNode);
 			print (Parser.show (keyNode));
-			if(keyNode is Operator op && op.@operator == Operators.Range) {
+			if (keyNode is Operator op && op.@operator == Operators.Range) {
 				int start = EvaluateNode (op.OperandOne);
 				int end = EvaluateNode (op.OperandTwo);
-				if(collection is string str)
+				if (collection is string str)
 					return str.Substring (start, end);
-				if (collection.GetType().IsArray)
+				if (collection.GetType ().IsArray)
 					return SubArray<dynamic> (collection, start, end);
-				if (IsList (collection))
+				if (Library.Crucial.IsList (collection))
 					return collection.GetRange (start, end);
 				throw new Exception ("WHAT");
 			}
 			dynamic key = EvaluateNode (keyNode);
 			if (key is int && key < 0)
-				key = GetLength (collection) + key;
+				key = Library.Crucial.GetLength (collection) + key;
 			print (key);
 			return collection [key];
 		}
-		public bool IsList (object o)
-		{
-			if (o == null) return false;
-			return o is System.Collections.IList &&
-				 o.GetType ().IsGenericType &&
-				 o.GetType ().GetGenericTypeDefinition ().IsAssignableFrom (typeof (List<>));
-		}
+
 
 		public static T [] SubArray<T> (T [] data, int index, int length)
 		{
@@ -390,8 +445,8 @@ namespace LevelScript {
 		dynamic Access (dynamic one, string two, bool GetValue = true)
 		{
 			one = EvaluateNode (one);
-		
-		// NON STATIC CLASSES
+
+			// NON STATIC CLASSES
 			if (one.GetType ().GetMethod (two) != null) {
 				return new InstanceMethodInfo (one.GetType ().GetMethod (two), one);
 			}
@@ -423,17 +478,12 @@ namespace LevelScript {
 		}
 		public List<dynamic> EvaluateNode (List<Node> node)
 		{
-			return node.ConvertAll (x => Evaluate(EvaluateNode (x)));
+			return node.ConvertAll (x => Evaluate (EvaluateNode (x)));
 		}
 		public dynamic EvaluateNode (Node [] nodes)
 		{
-//			print ("why");
 			return Array.ConvertAll (nodes, x => EvaluateAnything (EvaluateNode (x)));
 		}
-		//public async Task<List<dynamic>> EvaluateNodeAsync (List<Node> node)
-		//{
-		//	return await node.ConvertAll (async x => Evaluate (await EvaluateNodeAsync (x)));
-		//}
 		public async Task<dynamic> EvaluateNodeAsync (Node [] nodes)
 		{
 			// I couldn't work out how to use aync/await in the lamada expression :(
@@ -442,54 +492,10 @@ namespace LevelScript {
 			dynamic [] values = new dynamic [nodes.Length];
 			for (int n = 0; n < nodes.Length; n++) values [n] = (await EvaluateNodeAsync (nodes [n]));
 			return values;
+		}
 
-		}
-		public int Int (object obj)
-		{
-			switch (obj) {
-			case int i:
-				return i;
-			case float f:
-				return (int)f;
-			case string s:
-				int outInt;
-				if (int.TryParse (s, out outInt))
-					return outInt;
-				break;
-			}
-			throw new Exception (obj.ToString () + " cannot be converted to an int");
-		}
-		public void Print (object obj) {
-			if (IsList (obj)) {
-				Print (string.Join (", ", (List<dynamic>) obj));
-			} else {
-				print (">>>" + obj);
-			}
-		}
-		public float Float (object obj)
-		{
-			switch (obj) {
-			case int i: return i;
-			case float f: return f;
-			case string s:
-				float outFloat;
-				if (float.TryParse (s, out outFloat))
-					return outFloat;
-				break;
-			}
-			throw new Exception (obj.ToString () + " cannot be converted to a float");
-		}
-		public int GetLength (dynamic collection)
-		{
-			if (collection is System.Collections.Generic.List<Type> list) return list.Count; // TODO check if this works
-			return collection.Length;
-		}
-		public string Str (object obj) { return obj.ToString (); }
-		public void Destroy (UnityEngine.Object obj) { UnityEngine.Object.Destroy (obj); }
-		public Vector3 Vector (float x, float y, float z = 0) { return new Vector3 (x, y, z); }
 		dynamic Call (object function, dynamic [] parameters)
 		{
-
 			//function = Evaluate (function); I think this isnt needeed
 			switch (function) {
 			case Method scriptedMethod:
@@ -504,7 +510,15 @@ namespace LevelScript {
 		}
 		public dynamic Call (string function, dynamic [] parameters = null)
 		{
-			return Run (heap[function], parameters);
+			return Call (heap [function], parameters);
+		}
+//		public dynamic Call (string function, params dynamic[] parameters)
+//		{
+//			return Run (heap [function], parameters);
+//		}
+		async void StartAsync (object function, dynamic[] parameters)
+		{
+			await CallAsync (function, parameters);
 		}
 		async Task<dynamic> CallAsync (object function, dynamic [] parameters)
 		{
@@ -515,11 +529,11 @@ namespace LevelScript {
 			case MethodInfo cSharpMethod:
 				return cSharpMethod.Invoke (this, parameters);
 			case InstanceMethodInfo cSharpMethod:
-				ParameterInfo[] parameterInfo = cSharpMethod.methodInfo.GetParameters ();
+				ParameterInfo [] parameterInfo = cSharpMethod.methodInfo.GetParameters ();
 				dynamic [] fixedParams;
 				if (parameters.Length < parameterInfo.Length) {
 					fixedParams = new dynamic [parameterInfo.Length];
-					for(int p = 0; p < parameterInfo.Length; p++) {
+					for (int p = 0; p < parameterInfo.Length; p++) {
 						if (p < parameters.Length)
 							fixedParams [p] = parameters [p];
 						else if (parameterInfo [p].IsOptional)
@@ -527,11 +541,32 @@ namespace LevelScript {
 						else
 							throw new Exception ("incorrecct params");
 					}
-				} else
+				} else {
 					fixedParams = parameters;
-				return cSharpMethod.methodInfo.Invoke (cSharpMethod.instance, parameters);
+				}
+				if (IsAsyncMethod (cSharpMethod.methodInfo)) {
+					Type type = cSharpMethod.methodInfo.ReturnType;
+					dynamic task = cSharpMethod.methodInfo.Invoke (cSharpMethod.instance, fixedParams);
+					dynamic result = await task;
+					return result;
+					
+				} else
+					return cSharpMethod.methodInfo.Invoke (cSharpMethod.instance, fixedParams);
 			}
 			throw new Exception ($"Could not call '{function}'");
+		}
+
+		private static bool IsAsyncMethod (MethodInfo method)
+		{
+
+			Type attType = typeof (System.Runtime.CompilerServices.AsyncStateMachineAttribute);
+
+			// Obtain the custom attribute for the method. 
+			// The value returned contains the StateMachineType property. 
+			// Null is returned if the attribute isn't present for the method. 
+			var attrib = (System.Runtime.CompilerServices.AsyncStateMachineAttribute)method.GetCustomAttribute (attType);
+
+			return (attrib != null);
 		}
 		public class InstanceMethodInfo {
 			public MethodInfo methodInfo;
@@ -542,12 +577,10 @@ namespace LevelScript {
 				this.instance = instance;
 			}
 		}
-		//public class Global {
-			public dynamic this [string key] {
-				get { return heap [key]; }
-				set { heap [true, key] = value; }
-			}
-		//}
+		public dynamic this [string key] {
+			get { return instanceMembers [key]; }
+			set { instanceMembers [key] = value; }
+		}
 		/*public class Range {
 			public int start;
 			public int end;
@@ -558,10 +591,11 @@ namespace LevelScript {
 			}
 		}*/
 		public class Heap {
-			//Dictionary<string, dynamic> globals;
 			List<Dictionary<string, dynamic>> scopes;
-			public Heap ()
+			Runtime runtime;
+			public Heap (Runtime runtime)
 			{
+				this.runtime = runtime;
 				scopes = new List<Dictionary<string, dynamic>> ();
 			}
 			public dynamic this [string key] {
@@ -578,6 +612,8 @@ namespace LevelScript {
 					if (scope.ContainsKey (key))
 						return scope [key];
 				}
+				if (runtime.instanceMembers.ContainsKey (key))
+					return runtime.instanceMembers [key];
 				throw new Exception ($"[404]: Value at '{key}' could not be found.");
 			}
 			void Set (string key, dynamic value, bool setInBottomScope = false)
@@ -587,15 +623,15 @@ namespace LevelScript {
 					return;
 				}
 
-//				print ($"Set {key} to {value}");
+				//				print ($"Set {key} to {value}");
 				foreach (var scope in scopes) {
 					if (scope.ContainsKey (key)) {
 						scope [key] = value;
 						return;
 					}
 				}
-					scopes [scopes.Count - 1].Add (key, value);
-					return;
+				scopes [scopes.Count - 1].Add (key, value);
+				return;
 
 				throw new Exception ($"[404]: Value at '{key}' could not be set.");
 			}
@@ -630,7 +666,7 @@ namespace LevelScript {
 			public Code code;
 			public string [] parameters;
 			DebugInfo debug;
-			public Method (Code code, string[] parameters, DebugInfo debug = null)
+			public Method (Code code, string [] parameters, DebugInfo debug = null)
 			{
 				this.code = code;
 				this.parameters = parameters;

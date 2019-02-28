@@ -70,6 +70,7 @@ namespace LevelScript
 			public Node asyncMethod;
 			public Start (Node asyncMethod)
 			{
+				awaitable = true;
 				this.asyncMethod = asyncMethod;
 			}
 		}

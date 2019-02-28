@@ -1,0 +1,7 @@
+print("adf")
+def one ():
+    await 1
+end
+text = await one()
+print("done")
+

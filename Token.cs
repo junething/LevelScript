@@ -20,7 +20,7 @@ namespace LevelScript {
 			Define, If, For, While, Else, Elif, Return, Wait									// I dont like these here :( HACK
 	
 		};
-		public enum Keywords { None, Define, Class, If, Else, Elif, For, While, Return, Wait };
+		public enum Keywords { None, Define, Class, If, Else, Elif, For, While, Return, Wait, Start};
 		public enum Punctuation {
 			ParenthesisOpen, ParenthesisClose,  // (    )
 			CurlyOpen, CurlyClose,              // {    }
