@@ -57,7 +57,7 @@ namespace LevelScript
 			stack.Push (thing);
 		}*/
 	}
-	class Logging {
+	public class Logging {
 		//public static void print (object obj)
 	//	{
 	//		Debug.Log (obj);
@@ -69,7 +69,11 @@ namespace LevelScript
 		public static string Display (List<dynamic> tokens, int highlight)
 		{
 			tokens [highlight] = $"<color=red>{Display(tokens [highlight])}</color>";
-			return string.Join (" ", tokens.Select (t => Display (t))).ToString();
+			return string.Join (" ", tokens.Select (t => Display (t)));
+		}
+		public static string Display (List<dynamic> tokens)
+		{
+			return string.Join (" ", tokens.Select (t => Display (t)));
 		}
 		public static void Print (string str, List<dynamic> tokens)
 		{

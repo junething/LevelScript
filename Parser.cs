@@ -327,7 +327,7 @@ namespace LevelScript {
 			case Wait w:
 				return "(wait " + show (w.obj) + ")";
 			default:
-				return node.ToString () + "*";
+				return node?.ToString () + "*";
 		}
 		}
 	}

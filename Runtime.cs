@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using UnityAsync;
+//using UnityAsync;
 using UnityEngine;
 using static LevelScript.Node;
 using static LevelScript.Logging;
@@ -14,14 +14,15 @@ namespace LevelScript {
 		Dictionary<string, dynamic> instanceMembers;
 		public int maxLoopingOrRecursion = 1000;
 		Heap heap;
-		string input = null;
+		public string input = null;
 		public Runtime (Dictionary<string, dynamic> parentInstanceMembers = null)
 		{
 			instanceMembers = parentInstanceMembers ?? new Dictionary<string, dynamic> ();
 			this ["math"] = typeof (Library.Math);
 			this ["input"] = GetMethod ("GetUserInput", this);
-			this ["wait_for_four"] = GetMethod ("WaitForFour", this);
-			AddAllMembers  (typeof(Library.Crucial));
+			this [""] += typeof (Library.Crucial);
+			Debug.Log (this["test"]);
+			//AddAllMembers  ());
 			heap = new Heap (this);
 			heap.Enter ();
 		}
@@ -39,22 +40,15 @@ namespace LevelScript {
 		}
 		public async Task<string> GetUserInput (string prompt = "")
 		{
-				Call ("print", new dynamic [] { prompt });
+			Call ("echo", new dynamic [] { prompt });
 			while (input == null) {
 				//	print ("K" + input + "K");
-				await new WaitForFrames (1);
+				await Task.Yield ();
 			}
-			print ("K" + input + "K");
+			print ("-----" + input + "-----");
 			string text = input;
-			
 			input = null;
 			return text;
-		}
-		public async Task<int> WaitForFour ()
-		{
-			await Task.Delay (500);
-			await Task.Delay (500);
-			return 4;
 		}
 		public void AddAllMembers (Type type, bool enforceSnakeCase = true)
 		{
@@ -269,7 +263,8 @@ namespace LevelScript {
 			}
 			switch (node) {
 			case Operator operation:
-				//				print (Parser.show (operation));
+				print (operation.OperandOne.GetType ());
+								print (Parser.show (operation));
 				dynamic result1 = await HandleOperationAsync (operation.OperandOne, operation.OperandTwo, operation.@operator);
 				//print ("lll   " + result1);
 				return result1;
@@ -316,7 +311,7 @@ namespace LevelScript {
 					Node condition = ((Until)wait.obj).condition;
 					while (EvaluateNode (condition)) {
 						loops++;
-						await new WaitForFrames (1);
+						await Task.Yield ();
 						if (loops > maxLoopingOrRecursion)
 							throw new Exception ("Too much looping");
 					}
@@ -334,7 +329,7 @@ namespace LevelScript {
 						StartAsync (await EvaluateNodeAsync (startCall.function), await EvaluateNodeAsync (startCall.parameters));
 						return null;
 					} else {
-						await new  WaitForFrames (0);
+						throw new Exception ($"Cannot start {start.asyncMethod}");
 					}
 					//EvaluateNodeAsync (start.asyncMethod).WrapErrors ();
 				}
@@ -359,7 +354,7 @@ namespace LevelScript {
 		}
 		dynamic Operate (dynamic one, dynamic two, Operators @operator)
 		{
-			//	print ($"{one} {@operator} {two}");
+				print ($"{one} {@operator} {two}");
 			switch (@operator) {
 			// Math
 			case Operators.Plus: return one + two;
@@ -383,6 +378,9 @@ namespace LevelScript {
 			// Assign
 			case Operators.Assign: return Assign (one, two);
 			case Operators.PlusAssign: return Assign (one, EvaluateNode (one) + two);
+			case Operators.MinusAssign: return Assign (one, EvaluateNode (one) - two);
+			case Operators.MultiplyAssign: return Assign (one, EvaluateNode (one) * two);
+			case Operators.DivideAssign: return Assign (one, EvaluateNode (one) / two);
 			//
 			case Operators.Index: return one [two];
 			case Operators.Access: return Access (one, two);
@@ -578,8 +576,25 @@ namespace LevelScript {
 			}
 		}
 		public dynamic this [string key] {
-			get { return instanceMembers [key]; }
-			set { instanceMembers [key] = value; }
+			get {
+				if (key == "") {
+					return new AddLibary ();
+				}
+				else
+				return instanceMembers [key];
+				}
+			set {
+				if(key == "") {
+					AddAllMembers (value);
+				} else
+					instanceMembers [key] = value;
+			}
+		}
+		public class AddLibary {
+			public static object operator+ (AddLibary lib, object obj)
+			{
+				return obj;
+			}
 		}
 		/*public class Range {
 			public int start;

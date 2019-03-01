@@ -14,7 +14,7 @@ namespace LevelScript {
 			//      .      [       (
 			Access, Index, Invoke,                                      // Um
 			//       =        +=
-			Assign, PlusAssign,                                               // Assign
+			Assign, PlusAssign, MultiplyAssign, DivideAssign, MinusAssign,                                              // Assign
 			//     ..
 			Range,                                             // Other
 			Define, If, For, While, Else, Elif, Return, Wait									// I dont like these here :( HACK

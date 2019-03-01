@@ -298,6 +298,10 @@ namespace LevelScript {
 					break;
 				case Operators op:
 					if (op == Operators.If || op == Operators.While || op == Operators.Elif) {
+						if (op == Operators.Elif) {
+							tokens.Insert (i - 1, Token.Punctuation.CurlyClose);
+							i++;
+						}
 						tokens.Insert (++i, Token.Punctuation.ParenthesisOpen);
 						for (int j = ++i; j < tokens.Count; j++) {
 							if (tokens [j] is Token.Punctuation) {
@@ -305,6 +309,7 @@ namespace LevelScript {
 									tokens.Insert (j, Token.Punctuation.ParenthesisClose);
 									break;
 								}
+
 							}
 						}
 					} else if (op == Operators.For) {
@@ -321,6 +326,7 @@ namespace LevelScript {
 					} else if (op == Operators.Else) {
 
 					}
+					
 					break;
 				}
 			}
@@ -345,10 +351,10 @@ namespace LevelScript {
 			// Assignment
 			[Operators.Assign] = new OperatorInfo { Text = "=", Precedence = 0, Type = OperatorType.Assign},
 			[Operators.PlusAssign] = new OperatorInfo { Text = "+=", Precedence = 0, Type = OperatorType.Assign},
-			/*[op.MinusEquals] = new Operator { Name = "-=", Precedence = 0 },
-			[op.MultiplyEquals] = new Operator { Name = "*=", Precedence = 0 },
-			[op.DivideEquals] = new Operator { Name = "/=", Precedence = 0 },
-			[op.PowerEquals] = new Operator { Name = "^=", Precedence = 0 },*/
+			[Operators.MinusAssign] = new OperatorInfo { Text = "-=", Precedence = 0, Type = OperatorType.Assign },
+			[Operators.MultiplyAssign] = new OperatorInfo { Text = "*=", Precedence = 0 , Type = OperatorType.Assign },
+			[Operators.DivideAssign] = new OperatorInfo { Text = "/=", Precedence = 0 , Type = OperatorType.Assign },
+			//[Operators.PowerEquals] = new OperatorInfo { Text = "^=", Precedence = 0 , Type = OperatorType.Assign },
 			// Logic
 			[Operators.Equals] = new OperatorInfo { Text = "==", Precedence = 0 },
 			[Operators.GreaterThan] = new OperatorInfo { Text = ">", Precedence = 2 },
@@ -381,9 +387,9 @@ namespace LevelScript {
 			["%"] = new OperatorPhraseInfo { op = Operators.Modulus, MoreCharsAllowed = false },
 
 			["+="] = new OperatorPhraseInfo { op = Operators.PlusAssign, MoreCharsAllowed = false },
-			["-="] = new OperatorPhraseInfo { op = Operators.Minus, MoreCharsAllowed = false },
-			["*="] = new OperatorPhraseInfo { op = Operators.Multiply, MoreCharsAllowed = false },
-			["/="] = new OperatorPhraseInfo { op = Operators.Divide, MoreCharsAllowed = false },
+			["-="] = new OperatorPhraseInfo { op = Operators.MinusAssign, MoreCharsAllowed = false },
+			["*="] = new OperatorPhraseInfo { op = Operators.MultiplyAssign, MoreCharsAllowed = false },
+			["/="] = new OperatorPhraseInfo { op = Operators.DivideAssign, MoreCharsAllowed = false },
 
 			["="] = new OperatorPhraseInfo { op = Operators.Assign, MoreCharsAllowed = true },
 			["=="] = new OperatorPhraseInfo { op = Operators.Equals, MoreCharsAllowed = false },
