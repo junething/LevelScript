@@ -1,0 +1,8 @@
+
+if false:
+    nothing
+elif true:
+    print("yes")
+elif true:
+    print("6")
+end

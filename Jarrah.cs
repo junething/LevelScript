@@ -16,10 +16,7 @@ namespace Jarrah {
 		{
 			UnityEngine.Debug.Log (obj);
 		}
-		public static async void WrapErrors (this Task task)
-		{
-			await task;
-		}
+
 		[MenuItem ("Tools/Clear Console %&#c")] // CMD + SHIFT + C
 		public static void ClearConsole ()
 		{
@@ -54,6 +51,19 @@ namespace Jarrah {
 			    @"(\p{Ll})(\P{Ll})",
 			    "$1 $2"
 			);
+		}
+		public static int GetNthIndex (this string s, char t, int n)
+		{
+			int count = 0;
+			for (int i = 0; i < s.Length; i++) {
+				if (s [i] == t) {
+					count++;
+					if (count == n) {
+						return i;
+					}
+				}
+			}
+			return -1;
 		}
 	}
 }

@@ -76,10 +76,9 @@ namespace LevelScript {
 					await Task.Yield ();
 				return 0;
 			}
-			public static async Task<int> Seconds (float seconds)
+			public static async Task Seconds (float seconds)
 			{
 				await Task.Delay (TimeSpan.FromSeconds (Convert.ToDouble (seconds)));
-				return 0;
 			}
 			public static async Task<int> Miliseconds (float miliseconds)
 			{

@@ -1,0 +1,7 @@
+if true:
+print("adfs")
+elif true:
+afds()
+else:
+print("afd")
+end

@@ -8,7 +8,7 @@ namespace LevelScript {
 			//	 +      -       *        /       %        ^      - 
 			Plus, Minus, Multiply, Divide, Modulus, Power, Negate,      // Math
 			//     &    |   !|   !    |!&
-			And, Or, Nor, Not, Zor,                                     // Logic
+			And, Or, Nor, Not, Xor,                                     // Logic
 			//     ==          !=            <           >           <=                    >=
 			Equals, NotEquals, GreaterThan, LesserThan, LesserThanOrEqualTo, GreaterThanOrEqualTo,           // Checks
 			//      .      [       (

@@ -25,11 +25,14 @@ elif grade > 45:
 	GPA = 3
 elif grade > 20:
 	GPA = 2
+else:
+	GPA = 1
 end
+
 pass = "pass"
 mood = ":)"
-if GPA > 4:
-	pass = "fail:"
+if GPA < 4:
+	pass = "fail"
 	mood = ":`("
 end
 print("Final Mark: " + grade + "%")
