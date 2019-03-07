@@ -8,13 +8,13 @@ namespace LevelScript {
 			//	 +      -       *        /       %        ^      - 
 			Plus, Minus, Multiply, Divide, Modulus, Power, Negate,      // Math
 			//     &    |   !|   !    |!&
-			And, Or, Nor, Not, Zor,                                     // Logic
+			And, Or, Nor, Not, Xor,                                     // Logic
 			//     ==          !=            <           >           <=                    >=
 			Equals, NotEquals, GreaterThan, LesserThan, LesserThanOrEqualTo, GreaterThanOrEqualTo,           // Checks
 			//      .      [       (
 			Access, Index, Invoke,                                      // Um
 			//       =        +=
-			Assign, PlusAssign,                                               // Assign
+			Assign, PlusAssign, MultiplyAssign, DivideAssign, MinusAssign,                                              // Assign
 			//     ..
 			Range,                                             // Other
 			Define, If, For, While, Else, Elif, Return, Wait									// I dont like these here :( HACK

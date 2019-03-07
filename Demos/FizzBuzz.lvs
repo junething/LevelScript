@@ -1,5 +1,5 @@
 # FizzBuzz
-for i in 0..100:
+for i in 0->100:
 	out = ""
 	if i % 3 == 0:
 		out += "fizz"

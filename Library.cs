@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using System.Threading.Tasks;
 namespace LevelScript {
 	namespace Library {
 		public static class Math {
@@ -16,6 +17,7 @@ namespace LevelScript {
 			}
 		}
 		public static class Crucial {
+			public static int test = 7;
 			public static int Int (object obj)
 			{
 				switch (obj) {
@@ -68,6 +70,21 @@ namespace LevelScript {
 			public static string Str (object obj) { return obj.ToString (); }
 			public static void Destroy (UnityEngine.Object obj) { UnityEngine.Object.Destroy (obj); }
 			public static Vector3 Vector (float x, float y, float z = 0) { return new Vector3 (x, y, z); }
+			public static async Task<int> Frames (int frames)
+			{
+				for (int f = 0; f < frames; f++)
+					await Task.Yield ();
+				return 0;
+			}
+			public static async Task Seconds (float seconds)
+			{
+				await Task.Delay (TimeSpan.FromSeconds (Convert.ToDouble (seconds)));
+			}
+			public static async Task<int> Miliseconds (float miliseconds)
+			{
+				await Task.Delay (TimeSpan.FromMilliseconds (Convert.ToDouble (miliseconds)));
+				return 0;
+			}
 		}
 	}
 }

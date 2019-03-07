@@ -12,8 +12,11 @@ using static LevelScript.Extensions;
 using static UnityEngine.MonoBehaviour;
 //using Jarrah;
 namespace LevelScript {
+	public class Out<T> {
+		public T value;
+	}
 	public class Parser {
-		public static Code Parse (List<dynamic> tokens, TextMesh textMesh = null)
+		public static Code Parse (List<dynamic> tokens, TextMesh textMesh = null, Out<int> debug = null)
 		{
 			var tree = new Stack<dynamic> ();
 			var stack = new Stack<dynamic> ();
@@ -73,7 +76,7 @@ namespace LevelScript {
 						}
 						tree.Pop ();
 						list.Reverse ();
-						tree.Push (new List (list));
+						tree.Push (new List (list, new DebugInfo(line)));
 
 						break;
 					case Token.Punctuation.ParenthesisClose:
@@ -95,8 +98,10 @@ namespace LevelScript {
 				 case Token.Operators o:
 //					print (token);
 					 if (Lexer.operators [o].Unary == true) {
-
-					 } else {
+						while (stack.Any () && stack.Peek () is Token.Operators && Lexer.CompareOperators (o, stack.Peek ())) {
+							HandleOperatorOrKeyword ();
+						}
+					} else {
 						while (stack.Any () && stack.Peek () is Token.Operators && Lexer.CompareOperators (o, stack.Peek ())) {
 							HandleOperatorOrKeyword ();
 						}						
@@ -104,16 +109,18 @@ namespace LevelScript {
 					 stack.Push(o);
 					 break;
 				case CODEBLOCK c:
-					tree.Push (new Code(Parse(c.code)));
+					tree.Push (new Code(Parse(c.code), new DebugInfo(line)));
 					break;
 				case WORD w:
-					tree.Push (new Word (w.str));
+					tree.Push (new Word (w.str, new DebugInfo(line)));
 					break;
 				default:
 					tree.Push (new Const(token));
 					break;
 				}
-			 }
+				if(debug != null)
+					debug.value++;
+			}
 			
 			while (stack.Any())
 			{
@@ -136,11 +143,10 @@ namespace LevelScript {
 			}
 			code.Reverse ();
 //			print (show (code), Color.red);
-			return new Code(code.ToArray ());
+			return new Code(code.ToArray (), new DebugInfo(line));
 			//<summary> If an operator is not provided will take it from the stack </summary>
 			void HandleOperatorOrKeyword (dynamic token = null)
 			{
-
 				if (token == null) {
 					token = stack.Pop ();
 				}
@@ -173,51 +179,59 @@ namespace LevelScript {
 							case Token.Keywords keyword:
 								switch(keyword) {
 								case Token.Keywords.Return:
-									tree.Push (new Return (parameterArray [0]));
+									tree.Push (new Return (parameterArray [0], new DebugInfo (line)));
 									break;
 								case Token.Keywords.Wait:
-									tree.Push (new Wait (parameterArray [0]));
+									tree.Push (new Wait (parameterArray [0], new DebugInfo (line)));
 									break;
 								case Token.Keywords.Start:
-									tree.Push (new Start (parameterArray [0]));
+									tree.Push (new Start (parameterArray [0], new DebugInfo (line)));
 									break;
 								}
 								break;
 							default:
-								tree.Push (new Call (function, parameterArray));
+								tree.Push (new Call (function, parameterArray, new DebugInfo (line)));
 								break;
 							}
 						} else
-							tree.Push (new Call (function, parameterArray));
+							tree.Push (new Call (function, parameterArray, new DebugInfo (line)));
 					}
 				break;
 				case Token.Operators.If: {
 						Code body = tree.Pop ().code [0];   /// HACK: Nani The Fuck????
 						Node condition = tree.Pop ();
-						var node = new If (condition, body);
+						var node = new If (condition, body, new DebugInfo (line));
 						tree.Push (node);
 					}
 				break;
 				case Token.Operators.Elif: {
 						Code body = tree.Pop ().code [0];   /// HACK: Nani The Fuck????
 						Node condition = tree.Pop ();
-						var node = new If (condition, body);
+						var node = new If (condition, body, new DebugInfo (line));
 						if (tree.Peek () is Token.Punctuation && tree.Peek () == Token.Punctuation.Newline)
 							tree.Pop ();
-						((If)tree.Peek ()).@else = node;
+						if (tree.Peek () is If parentStatement) {
+							while (parentStatement.@else is If _elseif) {
+								parentStatement = _elseif;
+							}
+							parentStatement.@else = node;
+							//else
+							//	throw new Exception ("Unexpexed else statement");
+						}
 					}
 				break;
 				case Token.Operators.Else: {
 						Code body = tree.Pop ().code [0];   /// HACK: Nani The Fuck????
 						if (tree.Peek () is Token.Punctuation && tree.Peek () == Token.Punctuation.Newline)
 							tree.Pop ();
-						if(tree.Peek() is If @if) {
-							if (@if.@else == null)
-								@if.@else = body;
-							else if (@if.@else is If elif)
-								elif.@else = body;
-							else
-								throw new Exception ("Unexpexed else statement");
+						
+						if(tree.Peek() is If parentStatement) {
+							while(parentStatement.@else is If _elseif) {
+								parentStatement = _elseif;
+							}
+							parentStatement.@else = body;
+							//else
+							//	throw new Exception ("Unexpexed else statement");
 						}
 					
 					}
@@ -227,39 +241,66 @@ namespace LevelScript {
 						Code body = Ensure<Code>( tree.Pop ()).code [0];   // HACK: This is concerning 
 						Node list = tree.Pop ();
 						Word variable = tree.Pop ();
-						var node = new For (variable.word, list, body);
+						var node = new For (variable.word, list, body, new DebugInfo (line));
 						tree.Push (node);
 					}
 				break;
 				case Token.Operators.While: {
 						Code body = tree.Pop ().code [0];   // HACK: This is concerning 
 						Node condition = tree.Pop ();
-						var node = new While (condition, body);
+						var node = new While (condition, body, new DebugInfo (line));
 						tree.Push (node);
 					}
 					break;
 				case Token.Operators.Index: {
 						Node index = tree.Pop ();
 						Node collection = tree.Pop ();
-						tree.Push (new Index (collection, index));
+						tree.Push (new Index (collection, index, new DebugInfo (line)));
 					}
 					break;
 				case Token.Operators.Access: {
 						string member = tree.Pop ().word;
 						Node obj = tree.Pop ();
-						tree.Push (new Access (obj, member));
+						tree.Push (new Access (obj, member, new DebugInfo (line)));
+					}
+					break;
+				case Token.Operators.PlusAssign:
+				case Token.Operators.MinusAssign:
+				case Token.Operators.MultiplyAssign:
+				case Token.Operators.DivideAssign:
+				case Token.Operators.Assign: {
+						var right = tree.Pop ();
+						var left = tree.Pop ();
+						if(token != Token.Operators.Assign)
+							right = new Operator (ToNormalOperator (token), left, right);
+						tree.Push (new Assign (left, right, new DebugInfo(line)));
 					}
 					break;
 				default:
-					var two = tree.Pop ();
-					var one = tree.Pop ();
-//							print (show (one));
-//					print (show (two));
-					tree.Push (new Operator (token, one, two, new DebugInfo (line)));
+					if (Lexer.operators [token].Unary) {
+						tree.Push (new Unary (token, tree.Pop (), new DebugInfo (line)));
+					} else {
+						var two = tree.Pop ();
+						var one = tree.Pop ();
+						tree.Push (new Operator (token, one, two, new DebugInfo (line)));
+					}
 					break;
+
 				
 			}
 				
+			}
+		}
+		public static Token.Operators ToNormalOperator (Token.Operators op)
+		{
+			switch (op) {
+			case Token.Operators.PlusAssign: return Token.Operators.Plus;
+			case Token.Operators.MinusAssign: return Token.Operators.Minus;
+			case Token.Operators.MultiplyAssign: return Token.Operators.Multiply;
+			case Token.Operators.DivideAssign: return Token.Operators.Divide;
+			case Token.Operators.Assign: return Token.Operators.None;
+			default:
+				throw new Exception ();
 			}
 		}
 		public static void log(dynamic thing)
@@ -268,7 +309,7 @@ namespace LevelScript {
 		}
 		public static string show (Operator node)
 		{
-			return ($"({show(node.OperandOne)} {Display(node.@operator)} {show(node.OperandTwo)})");
+			return ($"({show(node.LHS)} {Display(node.@operator)} {show(node.RHS)})");
 		}
 		public static string show (Access node)
 		{
@@ -278,8 +319,15 @@ namespace LevelScript {
 		{
 			if (node.value is List<dynamic>)
 				return "[ " + string.Join (", ", ((List<dynamic>)node.value).Select (t => show(t))) + " ]";
+			else if(node.value is string)
+				return $"\"{node.value}\"";
 			else
 				return node.value.ToString ();
+		}
+		public static string show (List<dynamic> list)
+		{
+		return "[ " + string.Join (", ", (list).Select (t => show (t))) + " ]";
+
 		}
 		public static string show (Call node)
 		{
@@ -288,7 +336,6 @@ namespace LevelScript {
 		}
 		public static string show (Code node)
 		{
-
 			return  string.Join ("\n ", Array.ConvertAll (node.code, show));
 		}
 		public static string show (List<Node> nodes)
@@ -297,11 +344,19 @@ namespace LevelScript {
 		}
 		public static string show (Definition node)
 		{
-			return $"def {node.name } ()";
+			return $"def {node.name } ({ string.Join(", ", node.parameters) }) {{\n {show(node.code)} \n}}";
+		}
+		public static string show (Assign node)
+		{
+			return $"{show(node.LHS)} = {show (node.RHS)}";
 		}
 		public static string show (If node)
 		{
-			return $"if {show(node.condition)} then {show(node.body)} else {show(node.@else)})";
+			return $"if {show(node.condition)} then {{ {show(node.body)} }} else {{ {show(node.@else)} }}";
+		}
+		public static string show (For node)
+		{
+			return $"for ({node.variable} in { show (node.list)}) do {{\n {show (node.body)} \n}}\n";
 		}
 		public static string show (Node node)
 		{
@@ -322,12 +377,16 @@ namespace LevelScript {
 				return show (i);
 			case Code c:
 				return show (c);
+			case For f:
+				return show (f);
+			case Assign a:
+				return show (a);
 			case Return r:
 				return "return " + show(r._return);
 			case Wait w:
 				return "(wait " + show (w.obj) + ")";
 			default:
-				return node.ToString () + "*";
+				return node?.ToString () + "*";
 		}
 		}
 		public static T Ensure<T> (Node node)

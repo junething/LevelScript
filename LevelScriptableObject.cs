@@ -23,8 +23,8 @@ public class LevelScriptableObject : MonoBehaviour {
 		runtime = new Runtime ();
 		runtime ["game_object"] = gameObject;
 		runtime ["transform"] = transform;
-		runtime ["spawn"] = Runtime.GetMethod ("Spawn", this);
-		runtime ["rotation"] = Runtime.GetMethod<LevelScriptableObject> ("Rotation");
+		runtime ["spawn"] = Methods.GetMethod ("Spawn", this);
+		runtime ["rotation"] = Methods.GetMethod<LevelScriptableObject> ("Rotation");
 		Node.Code code = Parser.Parse (Lexer.Lex (textCode));
 		print (Parser.show (code));
 		runtime.Go (code);

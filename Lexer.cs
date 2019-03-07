@@ -33,6 +33,8 @@ namespace LevelScript {
 						curlies++;
 						tokenListStack.Push (new List<dynamic> ()); // This scope
 					} else if (tokens [i] == Token.Punctuation.CurlyClose) {
+						if (curlies == 0)
+							throw new Exception ("Unexpected token `end`, scope has not been opened");
 						curlies--;
 						var codeBlock = tokenListStack.Pop (); // Pop off the stack, closes the scope
 						CODEBLOCK codeToken = new CODEBLOCK (codeBlock);
@@ -45,8 +47,8 @@ namespace LevelScript {
 					tokenListStack.Peek ().Add (tokens [i]);
 				}
 			}
-			if (curlies != 0) {
-				throw new Exception("Unmatched {}s");
+			if (curlies > 0) {
+				throw new Exception($"Unexpectd token `EOF`, expected tokens `end` * {curlies}");
 			}
 			return tokenListStack.Peek ();
 		}
@@ -61,6 +63,7 @@ namespace LevelScript {
 			bool inComment = false;
 			bool inRegex = false;
 			bool escape = false;
+			bool dot = false;
 			int closeParenthesisToAddNextNewLine = 0;
 			string token = "";
 			foreach (char ch in code) {
@@ -84,7 +87,10 @@ namespace LevelScript {
 					}
 				} else if (inComment) {
 					continue;
-				} if (ch == '"') {
+
+				}
+			
+				if (ch == '"') {
 					if (!inString) {
 						SubmitToken ();
 						inString = true;
@@ -182,6 +188,11 @@ namespace LevelScript {
 					case "elif": tokens.Add (Operators.Elif); break;
 					case "for": tokens.Add (Operators.For); break;
 					case "while": tokens.Add (Operators.While); break;
+
+					case "and": tokens.Add (Operators.And); break;
+					case "or": tokens.Add (Operators.Or); break;
+					case "nor": tokens.Add (Operators.Nor); break;
+					case "xor": tokens.Add (Operators.Xor); break;
 					//case "return": tokens.Add (Operators.Return); break;
 					//case "wait": tokens.Add (Operators.Wait); break;
 					default:
@@ -297,20 +308,31 @@ namespace LevelScript {
 
 					break;
 				case Operators op:
-					if (op == Operators.If || op == Operators.While || op == Operators.Elif) {
-						tokens.Insert (++i, Token.Punctuation.ParenthesisOpen);
-						for (int j = ++i; j < tokens.Count; j++) {
-							if (tokens [j] is Token.Punctuation) {
-								if (tokens [j] == Token.Punctuation.CurlyOpen) {
-									tokens.Insert (j, Token.Punctuation.ParenthesisClose);
-									break;
+					switch (op) {
+					case Operators.If:
+					case Operators.While:
+					case Operators.Elif:
+					case Operators.Else:
+						if (op == Operators.Elif || op == Operators.Else) {
+							tokens.Insert (i - 1, Token.Punctuation.CurlyClose);
+							i++;
+						}
+						if (op != Operators.Else) {
+							tokens.Insert (++i, Token.Punctuation.ParenthesisOpen);
+							for (int j = ++i; j < tokens.Count; j++) {
+								if (tokens [j] is Token.Punctuation) {
+									if (tokens [j] == Token.Punctuation.CurlyOpen) {
+										tokens.Insert (j, Token.Punctuation.ParenthesisClose);
+										break;
+									}
 								}
 							}
 						}
-					} else if (op == Operators.For) {
-						tokens[i+2]= Token.Punctuation.ParenthesisOpen;
+						break;
+					case Operators.For:
+						tokens [i + 2] = Token.Punctuation.ParenthesisOpen;
 						for (int j = ++i; j < tokens.Count; j++) {
-							 if (tokens [j] is Token.Punctuation) {
+							if (tokens [j] is Token.Punctuation) {
 								if (tokens [j] == Token.Punctuation.CurlyOpen) {
 									tokens.Insert (j, Token.Punctuation.ParenthesisClose);
 									i++;
@@ -318,15 +340,19 @@ namespace LevelScript {
 								}
 							}
 						}
-					} else if (op == Operators.Else) {
-
+						break;
+					case Operators.Minus:
+						if (!IsObject (tokens [i - 1])) {
+							tokens [i] = Operators.Negate;
+						}
+						break;
 					}
 					break;
 				}
 			}
 			 return tokens;
 		 }
-		public  static bool CompareOperators(Operators op1, Operators op2)
+		public static bool CompareOperators(Operators op1, Operators op2)
 		{
 			 return operators[op1].RightAssociative ? operators [op1].Precedence < operators [op2].Precedence : operators [op1].Precedence <= operators [op2].Precedence;
 		 }
@@ -341,24 +367,29 @@ namespace LevelScript {
 			[Operators.Divide] = new OperatorInfo { Text = "/", Precedence = 5 },
 			[Operators.Modulus] = new OperatorInfo { Text = "%", Precedence = 4 },
 			[Operators.Power] = new OperatorInfo { Text = "^", Precedence = 6, RightAssociative = true },
-			[Operators.Negate] = new OperatorInfo { Text = "_", Precedence = 7, Unary = true },
+			[Operators.Negate] = new OperatorInfo { Text = "_", Precedence = 99, Unary = true },
 			// Assignment
 			[Operators.Assign] = new OperatorInfo { Text = "=", Precedence = 0, Type = OperatorType.Assign},
 			[Operators.PlusAssign] = new OperatorInfo { Text = "+=", Precedence = 0, Type = OperatorType.Assign},
-			/*[op.MinusEquals] = new Operator { Name = "-=", Precedence = 0 },
-			[op.MultiplyEquals] = new Operator { Name = "*=", Precedence = 0 },
-			[op.DivideEquals] = new Operator { Name = "/=", Precedence = 0 },
-			[op.PowerEquals] = new Operator { Name = "^=", Precedence = 0 },*/
+			[Operators.MinusAssign] = new OperatorInfo { Text = "-=", Precedence = 0, Type = OperatorType.Assign },
+			[Operators.MultiplyAssign] = new OperatorInfo { Text = "*=", Precedence = 0 , Type = OperatorType.Assign },
+			[Operators.DivideAssign] = new OperatorInfo { Text = "/=", Precedence = 0 , Type = OperatorType.Assign },
+			//[Operators.PowerEquals] = new OperatorInfo { Text = "^=", Precedence = 0 , Type = OperatorType.Assign },
 			// Logic
 			[Operators.Equals] = new OperatorInfo { Text = "==", Precedence = 0 },
 			[Operators.GreaterThan] = new OperatorInfo { Text = ">", Precedence = 2 },
 			[Operators.LesserThan] = new OperatorInfo { Text = "<", Precedence = 2 },
 			[Operators.GreaterThanOrEqualTo] = new OperatorInfo { Text = ">=", Precedence = 1 },
 			[Operators.LesserThanOrEqualTo] = new OperatorInfo { Text = "<=", Precedence = 1 },
-			[Operators.Not] = new OperatorInfo { Text = "!", Precedence = 7, Unary = true },
+
+			[Operators.Not] = new OperatorInfo { Text = "!", Precedence = 99, Unary = true },
+			[Operators.And] = new OperatorInfo { Text = "&", Precedence = 1 },
+			[Operators.Or] = new OperatorInfo { Text = "|", Precedence = 1 },
+			[Operators.Nor] = new OperatorInfo { Text = "nor", Precedence = 1 },
+			[Operators.Xor] = new OperatorInfo { Text = "xor", Precedence = 1 },
 			// Special
 			[Operators.Access] = new OperatorInfo { Text = ".", Precedence = 8, RightAssociative = false },
-			[Operators.Range] = new OperatorInfo { Text = "..", Precedence = 6 },
+			[Operators.Range] = new OperatorInfo { Text = "->", Precedence = 6 },
 			//["->"] = new Operator { Name = "..", Precedence = 6 },
 			[Operators.Index] = new OperatorInfo { Text = "#", Precedence = 1, RightAssociative = true },
 			[Operators.Invoke] = new OperatorInfo { Text = "@", Precedence = 7, RightAssociative = false },
@@ -379,11 +410,14 @@ namespace LevelScript {
 			["*"] = new OperatorPhraseInfo { op = Operators.Multiply, MoreCharsAllowed = true },
 			["/"] = new OperatorPhraseInfo { op = Operators.Divide, MoreCharsAllowed = true },
 			["%"] = new OperatorPhraseInfo { op = Operators.Modulus, MoreCharsAllowed = false },
+			["^"] = new OperatorPhraseInfo { op = Operators.Power, MoreCharsAllowed = false },
+
+			["!"] = new OperatorPhraseInfo { op = Operators.Not, MoreCharsAllowed = false },
 
 			["+="] = new OperatorPhraseInfo { op = Operators.PlusAssign, MoreCharsAllowed = false },
-			["-="] = new OperatorPhraseInfo { op = Operators.Minus, MoreCharsAllowed = false },
-			["*="] = new OperatorPhraseInfo { op = Operators.Multiply, MoreCharsAllowed = false },
-			["/="] = new OperatorPhraseInfo { op = Operators.Divide, MoreCharsAllowed = false },
+			["-="] = new OperatorPhraseInfo { op = Operators.MinusAssign, MoreCharsAllowed = false },
+			["*="] = new OperatorPhraseInfo { op = Operators.MultiplyAssign, MoreCharsAllowed = false },
+			["/="] = new OperatorPhraseInfo { op = Operators.DivideAssign, MoreCharsAllowed = false },
 
 			["="] = new OperatorPhraseInfo { op = Operators.Assign, MoreCharsAllowed = true },
 			["=="] = new OperatorPhraseInfo { op = Operators.Equals, MoreCharsAllowed = false },
@@ -395,7 +429,7 @@ namespace LevelScript {
 			[">="] = new OperatorPhraseInfo { op = Operators.GreaterThanOrEqualTo, MoreCharsAllowed = false },
 
 			["."] = new OperatorPhraseInfo { op = Operators.Access, MoreCharsAllowed = true },
-			[".."] = new OperatorPhraseInfo { op = Operators.Range, MoreCharsAllowed = false },
+			["->"] = new OperatorPhraseInfo { op = Operators.Range, MoreCharsAllowed = false },
 			["@"] = new OperatorPhraseInfo { op = Operators.Invoke, MoreCharsAllowed = false },
 
 		};

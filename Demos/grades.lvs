@@ -1,0 +1,39 @@
+print("Enter your marks in percent for each of these tasks:")
+my_py_tutor = float(await input("MyPyTutor: "))
+assignment_1 = float(await input("Assignment 1: "))
+assignment_2 = float(await input("Assignment 2: "))
+assignment_3 = float(await input("Assignment 3: ")) 
+exam = float(await input("Exam: "))
+
+my_py_tutor *= 0.1
+assignment_1 *= 0.1
+assignment_2 *= 0.2
+assignment_3 *= 0.2
+exam *= 0.4
+grade = my_py_tutor + assignment_1 + assignment_2 + assignment_3 + exam
+GPA = 1
+
+if grade > 85:
+	GPA = 7
+elif grade > 75:
+	GPA = 6
+elif grade > 65:
+	GPA = 5
+elif grade > 50:
+	GPA = 4
+elif grade > 45:
+	GPA = 3
+elif grade > 20:
+	GPA = 2
+else:
+	GPA = 1
+end
+
+pass = "pass"
+mood = ":)"
+if GPA < 4:
+	pass = "fail"
+	mood = ":`("
+end
+print("Final Mark: " + grade + "%")
+print("You got a GPA " + GPA + ", which is a " + pass + "ing grade. " + mood)
