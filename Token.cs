@@ -2,24 +2,25 @@
 using System.Collections.Generic;
 using UnityEngine;
 namespace LevelScript {
+	public enum Operators {
+		None = 0,
+		//	 +      -       *        /       %        ^      - 
+		Plus, Minus, Multiply, Divide, Modulus, Power, Negate,      // Math
+												//     &    |   !|   !    |!&
+		And, Or, Nor, Not, Xor,                                     // Logic
+												//     ==          !=            <           >           <=                    >=
+		Equals, NotEquals, GreaterThan, LesserThan, LesserThanOrEqualTo, GreaterThanOrEqualTo,           // Checks
+																		 //      .      [       (
+		Access, Index, Invoke,                                      // Um
+												//       =        +=
+		Assign, PlusAssign, MultiplyAssign, DivideAssign, MinusAssign,                                              // Assign
+																				//     ..
+		Range,                                             // Other
+		Define, Class, If, For, While, Else, Elif, Return, Wait                                                      // I dont like these here :( HACK
+
+	};
 	public class Token {
-		public enum Operators {
-			None = 0,
-			//	 +      -       *        /       %        ^      - 
-			Plus, Minus, Multiply, Divide, Modulus, Power, Negate,      // Math
-			//     &    |   !|   !    |!&
-			And, Or, Nor, Not, Xor,                                     // Logic
-			//     ==          !=            <           >           <=                    >=
-			Equals, NotEquals, GreaterThan, LesserThan, LesserThanOrEqualTo, GreaterThanOrEqualTo,           // Checks
-			//      .      [       (
-			Access, Index, Invoke,                                      // Um
-			//       =        +=
-			Assign, PlusAssign, MultiplyAssign, DivideAssign, MinusAssign,                                              // Assign
-			//     ..
-			Range,                                             // Other
-			Define, If, For, While, Else, Elif, Return, Wait									// I dont like these here :( HACK
-	
-		};
+
 		public enum Keywords { None, Define, Class, If, Else, Elif, For, While, Return, Wait, Start};
 		public enum Punctuation {
 			ParenthesisOpen, ParenthesisClose,  // (    )

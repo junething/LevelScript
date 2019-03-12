@@ -20,11 +20,11 @@ namespace LevelScript {
 		//{
 		//	throw new System.NotImplementedException ();
 		//}
-		public class Operator : Node {
-			public Token.Operators @operator;
+		public class Operate : Node {
+			public Operators @operator;
 			public Node LHS;  // Left Hand Side
 			public Node RHS;  // RIght Hand Side
-			public Operator (Token.Operators op, Node one, Node two, DebugInfo debug = null)
+			public Operate (Operators op, Node one, Node two, DebugInfo debug = null)
 			{
 				//	Parser.log ($":{one} {op.ToString ()} {two}");
 				awaitable = true;
@@ -56,9 +56,9 @@ namespace LevelScript {
 
 		}
 		public class Unary : Node {
-			public Token.Operators _operator;
+			public Operators _operator;
 			public Node node;
-			public Unary (Token.Operators _operator, Node node, DebugInfo debugInfo = null)
+			public Unary (Operators _operator, Node node, DebugInfo debugInfo = null)
 			{
 				this.node = node;
 				this.debug = debugInfo;
@@ -68,9 +68,9 @@ namespace LevelScript {
 			{
 				dynamic operand = node.Eval (heap);
 				switch (_operator) {
-				case Token.Operators.Negate:
+				case Operators.Negate:
 					return -operand;
-				case Token.Operators.Not:
+				case Operators.Not:
 					return !operand;
 				default:
 					throw new Exception ($"`{_operator}` is not an unary operator");
@@ -101,17 +101,17 @@ namespace LevelScript {
 					heap [word.word] = right;
 					return right;
 				case Access access:
-					dynamic obj = access.obj.Eval (heap);
-					dynamic member = Methods.Access (access.obj, access.member, false);
-					member.SetValue (obj, right);
-					return right;
+					//dynamic obj = access.obj.Eval (heap);
+					//dynamic member = Methods.Access (access.obj, access.member, false);
+					//member.SetValue (obj, right);
+					return Methods.Set (access.obj, access.member, right);
 				}
 				throw new System.Exception ("could not assign");
 			}
 			public override dynamic Eval (Runtime.Heap heap)
 			{
 				dynamic right = this.RHS.Eval (heap);
-				Debug.Log ($"{Parser.show (LHS)} = {right}");
+//				Debug.Log ($"{Parser.show (LHS)} = {right}");
 				switch (LHS) {
 				case Index index:
 					Node collection = index.list;
@@ -338,12 +338,12 @@ namespace LevelScript {
 				return Methods.Access (obj.Eval (heap), member);
 			}
 		}
-		public class Definition : Node {
+		public class DefineMethod : Node {
 			public readonly string name;
 			public readonly string [] parameters;
 			public readonly Code code;
 			public readonly DebugInfo debug;
-			public Definition (string name, string [] parameters, Code code, DebugInfo debug = null)
+			public DefineMethod (string name, string [] parameters, Code code, DebugInfo debug = null)
 			{
 				this.name = name;
 				this.parameters = parameters;
@@ -353,6 +353,23 @@ namespace LevelScript {
 			public override dynamic Eval (Runtime.Heap heap)
 			{
 				heap [name] = new Method (code, parameters, debug);
+				return heap [name];
+			}
+		}
+		public class DefineClass : Node {
+			public readonly string name;
+			public readonly Code code;
+			public readonly DebugInfo debug;
+			public DefineClass (string name, Code code, DebugInfo debug = null)
+			{
+				this.name = name;
+				this.code = code;
+				this.debug = debug;
+			}
+			public override dynamic Eval (Runtime.Heap heap)
+			{
+				Debug.Log (name);
+				heap [name] = new ClassDefinition (code, name, debug);
 				return heap [name];
 			}
 		}
@@ -395,6 +412,12 @@ namespace LevelScript {
 				}
 				heap.Exit ();
 				return new Void ();
+			}
+			public void EvalOpen (Runtime.Heap heap)
+			{
+				foreach (Node node in code) {
+					node.Eval (heap);
+				}
 			}
 			public async override Task<dynamic> EvalAsync (Runtime.Heap heap)
 			{
@@ -467,7 +490,7 @@ namespace LevelScript {
 			{
 				dynamic collection = list.Eval (heap);
 				//print (Parser.show (keyNode));
-				if (this.key is Operator op && op.@operator == Token.Operators.Range) {
+				if (this.key is Operate op && op.@operator == Operators.Range) {
 					int start = op.LHS.Eval (heap);
 					int end = op.RHS.Eval (heap);
 					if (collection is string str)

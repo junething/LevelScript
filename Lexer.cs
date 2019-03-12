@@ -193,6 +193,7 @@ namespace LevelScript {
 					case "or": tokens.Add (Operators.Or); break;
 					case "nor": tokens.Add (Operators.Nor); break;
 					case "xor": tokens.Add (Operators.Xor); break;
+					case "class": tokens.Add (Operators.Class); break;
 					//case "return": tokens.Add (Operators.Return); break;
 					//case "wait": tokens.Add (Operators.Wait); break;
 					default:
@@ -283,8 +284,8 @@ namespace LevelScript {
 					if (s == Token.Punctuation.ParenthesisOpen && i > 0 && IsObject (tokens [i - 1])) {
 						tokens [i] = Token.Punctuation.SquareOpen;
 						if (!(i > 1 && tokens [i - 2] is Operators && tokens [i - 2] == Operators.Define)) {
-							Debug.Log ((tokens [i]));
-							Debug.Log (tokens[i-1]);
+//							Debug.Log ((tokens [i]));
+//							Debug.Log (tokens[i-1]);
 							tokens.Insert (i, Operators.Invoke);
 						}
 						
@@ -394,6 +395,7 @@ namespace LevelScript {
 			[Operators.Index] = new OperatorInfo { Text = "#", Precedence = 1, RightAssociative = true },
 			[Operators.Invoke] = new OperatorInfo { Text = "@", Precedence = 7, RightAssociative = false },
 			[Operators.Define] = new OperatorInfo { Text = "def", Precedence = 7, RightAssociative = false },
+			[Operators.Class] = new OperatorInfo { Text = "class", Precedence = 7, RightAssociative = false },
 			[Operators.If] = new OperatorInfo { Text = "if", Precedence = 7, RightAssociative = false },
 			[Operators.Elif] = new OperatorInfo { Text = "elif", Precedence = 7, RightAssociative = false },
 			[Operators.Else] = new OperatorInfo { Text = "else", Precedence = 7, RightAssociative = false },

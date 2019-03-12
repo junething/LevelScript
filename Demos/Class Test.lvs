@@ -1,0 +1,10 @@
+class foo:
+	bar = 6
+	def do(this):
+		print(this + bar)
+	end
+end
+inst = foo ()
+print(inst.bar)
+inst.do("tasdf")
+

@@ -17,7 +17,7 @@ namespace LevelScript {
 		{
 			dynamic collection = collectionNode.Eval(heap);
 			print (Parser.show (keyNode));
-			if (keyNode is Operator op && op.@operator == Operators.Range) {
+			if (keyNode is Operate op && op.@operator == Operators.Range) {
 				int start = op.LHS.Eval(heap);
 				int end = op.RHS.Eval (heap);
 				if (collection is string str)
@@ -42,6 +42,14 @@ namespace LevelScript {
 		}
 		internal static dynamic Access (dynamic one, string two, bool GetValue = true)
 		{
+			// LevelScript class
+			if (one is Class _class) {
+				dynamic member = _class.heap [two];
+				if (member is Method method)
+					return new Method.Instanced (method, _class);
+				return member;
+			}
+			// C# classes and structs
 			// NON STATIC CLASSES
 			if (one.GetType ().GetMethod (two) != null) {
 				return new Runtime.InstanceMethodInfo (one.GetType ().GetMethod (two), one);
@@ -71,6 +79,23 @@ namespace LevelScript {
 				return one.GetProperty (two);
 			}
 			throw new Exception ($"Can't find member: '{two}' on '{one}'");
+		}
+		internal static dynamic Set (dynamic one, string two, dynamic value, Runtime.Heap heap = null)
+		{
+			// LevelScript class
+			if (heap == null) {
+				if (one is Class _class) return _class.heap [two] = value;
+				one = one is Node ? ((Node)one).Eval (heap) : one;
+			}
+			// C# classes and structs
+			// NON STATIC CLASSES
+			if (one.GetType ().GetField (two) != null) return one.GetType ().GetField (two).SetValue(one, value);
+			else if (one.GetType ().GetProperty (two) != null) return one.GetType ().GetProperty (two).SetValue (one, value);
+			// STATIC CLASSES
+			else if (one.GetField (two) != null) one.GetField (two).SetValue (one, value);
+			else if (one.GetProperty (two) != null) one.GetProperty (two).SetValue (one, value);
+			else throw new Exception ($"Can't find member: '{two}' on '{one}'");
+			return value;
 		}
 		internal static dynamic Operate (dynamic one, dynamic two, Operators @operator)
 		{
@@ -154,8 +179,17 @@ namespace LevelScript {
 			heap.Enter ();
 			//function = Evaluate (function); I think this isnt needeed
 			switch (function) {
+			case ClassDefinition classInialize:
+				Class _class = new Class (new Runtime.Heap (heap));
+				classInialize.code.EvalOpen (_class.heap);
+				if(_class.heap.globals.ContainsKey(classInialize.name) && _class.heap[classInialize.name] is Method init) {
+					init.Run (null, _class.heap);
+				}
+				return _class;
 			case Method scriptedMethod:
 				return Run (scriptedMethod, parameters, heap);
+			case Method.Instanced scriptedInstanceMethod:
+				return Run (scriptedInstanceMethod.method, parameters, scriptedInstanceMethod.instance.heap);
 			//case MethodInfo cSharpMethod: 
 			//	throw new Exception ($"Should not be calling a MethodInfo, call InstanceMethodInfo instead'");
 			//	return cSharpMethod.Invoke (this, parameters);
@@ -283,8 +317,33 @@ namespace LevelScript {
 			this.parameters = parameters;
 			this.debug = debug;
 		}
+		public class Instanced {
+			public Method method;
+			public Class instance;
+			public Instanced (Method method, Class instance)
+			{
+				this.method = method;
+				this.instance = instance;
+			}
+		}
+	}
 
+	public class ClassDefinition {
+		public string name;
+		public Code code;
+		
+		public ClassDefinition(Code code, string name, DebugInfo debug = null) {
+			this.code = code;
+			this.name = name;
+		}
+	}
+	public class Class {
+		public Runtime.Heap heap;
+		public Class (Runtime.Heap heap)
+		{
+			this.heap = heap;
+		}
 	}
 	//public enum Void { start, }
-    public class Void { }
+	public class Void { }
 }

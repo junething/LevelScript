@@ -6,14 +6,29 @@ using System.Threading.Tasks;
 namespace LevelScript {
 	namespace Library {
 		public static class Math {
-			public const float pi = Mathf.PI;
-			public static float atan2 (float y, float x)
+			public const float Pi = Mathf.PI;
+
+			// Trig
+			public static float Atan2 (float y, float x) => Mathf.Atan2 (y, x);
+			public static float Atan (float f) => Mathf.Atan (f);
+			public static float Cos (float f) => Mathf.Cos (f);
+			public static float Sin (float f) => Mathf.Sin (f);
+
+			public static float Round (float f) => Mathf.Round (f);
+			public static float Floor (float f) => Mathf.Floor (f);
+			public static float Floor (float f, float min, float max) => Mathf.Clamp (f, min, max);
+			public static float Abs (float f) => Mathf.Abs (f);
+			public static float Log (float f) => Mathf.Log (f);
+			public static float Deg (float f) => f * Mathf.Deg2Rad;
+			public static float Rad (float f) => f * Mathf.Rad2Deg;
+		}
+		public static class Unity {
+			
+			public static async Task<int> Frames (int frames)
 			{
-				return Mathf.Atan2 (y, x);
-			}
-			public static float atan (float f)
-			{
-				return Mathf.Atan (f);
+				for (int f = 0; f < frames; f++)
+					await Task.Yield ();
+				return 0;
 			}
 		}
 		public static class Crucial {
@@ -70,12 +85,7 @@ namespace LevelScript {
 			public static string Str (object obj) { return obj.ToString (); }
 			public static void Destroy (UnityEngine.Object obj) { UnityEngine.Object.Destroy (obj); }
 			public static Vector3 Vector (float x, float y, float z = 0) { return new Vector3 (x, y, z); }
-			public static async Task<int> Frames (int frames)
-			{
-				for (int f = 0; f < frames; f++)
-					await Task.Yield ();
-				return 0;
-			}
+
 			public static async Task Seconds (float seconds)
 			{
 				await Task.Delay (TimeSpan.FromSeconds (Convert.ToDouble (seconds)));

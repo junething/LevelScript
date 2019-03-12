@@ -33,7 +33,7 @@ namespace LevelScript
 		{
 			return "'" + str + "'";
 		}
-		public static string Display(this Token.Operators op)
+		public static string Display(this Operators op)
 		{
 			return op.ToString();
 		}
@@ -91,7 +91,7 @@ namespace LevelScript
 		{
 			return thing.ToString ();
 		}
-		public static string Display (Token.Operators op)
+		public static string Display (Operators op)
 		{
 			return Lexer.operators [op].Text;
 		}

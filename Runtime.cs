@@ -9,25 +9,26 @@ using System.Reflection;
 using static LevelScript.Methods;
 namespace LevelScript {
 	public class Runtime {
+		public Dictionary<string, dynamic> globals;
 		public int maxLoopingOrRecursion = 1000;
 		Heap heap;
 		public string input;
 		public Action<DebugInfo, Exception> debugOut;
 		public Runtime ()
 		{
-			//globals = parentInstanceMembers ?? new Dictionary<string, dynamic> ();
+			globals = new Dictionary<string, dynamic> ();
 			heap = new Heap (this);
 			this ["math"] = typeof (Library.Math);
 			this ["input"] = GetMethod ("GetUserInput", this);
 			this [""] += typeof (Library.Crucial);
 			Debug.Log (this["test"]);
-			//AddAllMembers  ());
 		}
+		
 		public Runtime (string input, Dictionary<string, dynamic> parentInstanceMembers = null)
 		{
-			//globals = parentInstanceMembers ?? new Dictionary<string, dynamic> ();
-			AddAllMembers (typeof (Library.Crucial));
+			globals = new Dictionary<string, dynamic> ();
 			heap = new Heap (this);
+			this [""] += typeof (Library.Crucial);
 			Go (Parser.Parse (Lexer.Lex (input)));
 		}
 		public async Task<string> GetUserInput (string prompt = "")
@@ -148,15 +149,15 @@ namespace LevelScript {
 			}
 		}
 		public dynamic this [string key] {
-			get => key == "" ? (dynamic)new Nothing () : heap.globals [key];
+			get => key == "" ? (dynamic)new Nothing () : globals [key];
 			set {
 				if (key == "") {
 					AddAllMembers (value);
 				} else {
-					if (heap.globals.ContainsKey (key))
-						heap.globals [key] = value;
+					if (globals.ContainsKey (key))
+						globals [key] = value;
 					else
-						heap.globals.Add (key, value);
+						globals.Add (key, value);
 				}
 			}
 		}
@@ -178,15 +179,20 @@ namespace LevelScript {
 		}*/
 		public class Heap {
 			public Dictionary<string, dynamic> globals;
+			Dictionary<string, dynamic> globalglobals;
 			List<Dictionary<string, dynamic>> scopes;
 			public Heap (Runtime runtime) // Is this one even nessisary???
 			{
+//				Debug.Log ("heap");
 				globals = runtime?.heap != null ? runtime.heap.globals : new Dictionary<string, dynamic> ();
+				globalglobals = runtime.globals;
 				scopes = new List<Dictionary<string, dynamic>> ();
 			}
 			public Heap (Heap oldHeap)
 			{
+//				Debug.Log ("heap2");
 				globals = oldHeap != null ? oldHeap.globals : new Dictionary<string, dynamic> ();
+				globalglobals = oldHeap.globalglobals;
 				scopes = new List<Dictionary<string, dynamic>> ();
 			}
 			public Heap () // Will be used in static method calls? If I implemnt them??
@@ -206,6 +212,10 @@ namespace LevelScript {
 				}
 				if (globals != null && globals.ContainsKey (key))
 					return globals [key];
+				if (globals != null && globals.ContainsKey (key))
+					return globals [key];
+				if (globalglobals != null && globalglobals.ContainsKey (key))
+					return globalglobals [key];
 				throw new Exception ($"[404]: Value at '{key}' could not be found.");
 			}
 			void Set (string key, dynamic value)
