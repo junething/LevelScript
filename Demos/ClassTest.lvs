@@ -1,0 +1,17 @@
+class foo {
+	bar = 6
+	word = " "
+	def foo (num, fine) {
+		bar = num
+		word = fine
+	}
+	def print1() {
+		print(str(bar) + word)
+	}
+}
+inst = new foo (8, "afds")
+print(inst.word)
+inst.print1()
+blah = " "
+blah = "asfdas"
+print(blah)

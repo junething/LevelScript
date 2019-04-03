@@ -38,7 +38,7 @@ namespace Jarrah {
 					snake.Append ('_');
 				snake.Append (str [c]);
 			}
-			return snake.ToString ();
+			return snake.ToString ().ToLower();
 		}
 		public static string Spaced (this string str)
 		{

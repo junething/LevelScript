@@ -75,7 +75,7 @@ namespace LevelScript {
 						}
 						tree.Pop ();
 						list.Reverse ();
-						tree.Push (new List (list, new DebugInfo(line)));
+						tree.Push (new ListConstructor (list, new DebugInfo(line)));
 
 						break;
 					case Token.Punctuation.ParenthesisClose:
@@ -141,7 +141,7 @@ namespace LevelScript {
 				}
 			}
 			code.Reverse ();
-//			print (show (code), Color.red);
+//			print ((code), Color.red);
 			return new Code(code.ToArray (), new DebugInfo(line));
 			//<summary> If an operator is not provided will take it from the stack </summary>
 			void HandleOperatorOrKeyword (dynamic token = null)
@@ -170,8 +170,8 @@ namespace LevelScript {
 						Node parameters = tree.Pop ();
 						Node function = tree.Pop ();
 						Node [] parameterArray;
-						if (parameters is List)
-							parameterArray = ((List)parameters).items.ToArray ();
+						if (parameters is ListConstructor)
+							parameterArray = ((ListConstructor)parameters).items.ToArray ();
 						else
 							parameterArray = new Node [] { parameters };
 						if (function is Const) {
@@ -233,7 +233,7 @@ namespace LevelScript {
 					}
 					break;
 				case Operators.For: {
-						//					print (show (tree.Peek()));
+						//					print ((tree.Peek()));
 						Code body = Ensure<Code>( tree.Pop ()).code [0];   // HACK: This is concerning 
 						Node list = tree.Pop ();
 						Word variable = tree.Pop ();
@@ -272,9 +272,13 @@ namespace LevelScript {
 						tree.Push (new Assign (left, right, new DebugInfo(line)));
 					}
 					break;
+				case Operators.New:
+					tree.Push (new New (tree.Pop ()));
+					break;
 				default:
 					if (Lexer.operators [token].Unary) {
 						tree.Push (new Unary (token, tree.Pop (), new DebugInfo (line)));
+
 					} else {
 						var two = tree.Pop ();
 						var one = tree.Pop ();
@@ -300,93 +304,11 @@ namespace LevelScript {
 		{
 			print (thing);
 		}
-		public static string show (Operate node)
-		{
-			return ($"({show(node.LHS)} {Display(node.@operator)} {show(node.RHS)})");
-		}
-		public static string show (Access node)
-		{
-			return ($"({show (node.obj)}.{node.member})");
-		}
-		public static string show (Const node)
-		{
-			if (node.value is List<dynamic>)
-				return "[ " + string.Join (", ", ((List<dynamic>)node.value).Select (t => show(t))) + " ]";
-			else if(node.value is string)
-				return $"\"{node.value}\"";
-			else
-				return node.value.ToString ();
-		}
-		public static string show (List<dynamic> list)
-		{
-		return "[ " + string.Join (", ", (list).Select (t => show (t))) + " ]";
-
-		}
-		public static string show (Call node)
-		{
-
-			return $"{ show(node.function) } @ ( { string.Join(", ", Array.ConvertAll(node.parameters, show)) } )";
-		}
-		public static string show (Code node)
-		{
-			return  string.Join ("\n ", Array.ConvertAll (node.code, show));
-		}
-		public static string show (List<Node> nodes)
-		{
-			return string.Join ("\n", nodes.Select (show));
-		}
-		public static string show (DefineMethod node)
-		{
-			return $"def {node.name } ({ string.Join(", ", node.parameters) }) {{\n {show(node.code)} \n}}";
-		}
-		public static string show (Assign node)
-		{
-			return $"{show(node.LHS)} = {show (node.RHS)}";
-		}
-		public static string show (If node)
-		{
-			return $"if {show(node.condition)} then {{ {show(node.body)} }} else {{ {show(node.@else)} }}";
-		}
-		public static string show (For node)
-		{
-			return $"for ({node.variable} in { show (node.list)}) do {{\n {show (node.body)} \n}}\n";
-		}
-		public static string show (Node node)
-		{
-			switch (node) {
-			case Operate @operator:
-				return show (@operator);
-			case Const con:
-				return show (con);
-			case Word w:
-				return w.word;
-			case DefineMethod d:
-				return show (d);
-			case Call c:
-				return show (c);
-			case Access a:
-				return show (a);
-			case If i:
-				return show (i);
-			case Code c:
-				return show (c);
-			case For f:
-				return show (f);
-			case Assign a:
-				return show (a);
-			case Return r:
-				return "return " + show(r._return);
-			case Wait w:
-				return "(wait " + show (w.obj) + ")";
-			default:
-				return node?.ToString () + "*";
-		}
-		}
 		public static T Ensure<T> (Node node)
 		{
 			if (node is T type)
 				return type;
-			throw new Exception ($"Unexpected token `{show(node)}:node`, expecting {typeof(T)}");
+			throw new Exception ($"Unexpected token `{node}:node`, expecting {typeof(T)}");
 		}
 	}
 

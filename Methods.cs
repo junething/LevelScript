@@ -16,7 +16,7 @@ namespace LevelScript {
 		public static dynamic IndexAccess (Node collectionNode, Node keyNode, Runtime.Heap heap)
 		{
 			dynamic collection = collectionNode.Eval(heap);
-			print (Parser.show (keyNode));
+			print (keyNode);
 			if (keyNode is Operate op && op.@operator == Operators.Range) {
 				int start = op.LHS.Eval(heap);
 				int end = op.RHS.Eval (heap);
@@ -64,20 +64,22 @@ namespace LevelScript {
 					return one.GetType ().GetProperty (two).GetValue (one);
 				return one.GetType ().GetProperty (two);
 			}
-			// STATIC CLASSES
-			if (one.GetMethod (two) != null) {  // Static methods on static classes
-				return new Runtime.InstanceMethodInfo (one.GetMethod (two), null);
-			}
-			if (one.GetField (two) != null) {
-				if (GetValue)
-					return one.GetField (two).GetValue (one);
-				return one.GetField (two);
-			}
-			if (one.GetProperty (two) != null) {
-				if (GetValue)
-					return one.GetProperty (two).GetValue (one);
-				return one.GetProperty (two);
-			}
+			//if (one is Type) {
+				// STATIC CLASSES
+				if (one.GetMethod (two) != null) {  // Static methods on static classes
+					return new Runtime.InstanceMethodInfo (one.GetMethod (two), null);
+				}
+				if (one.GetField (two) != null) {
+					if (GetValue)
+						return one.GetField (two).GetValue (one);
+					return one.GetField (two);
+				}
+				if (one.GetProperty (two) != null) {
+					if (GetValue)
+						return one.GetProperty (two).GetValue (one);
+					return one.GetProperty (two);
+				}
+			//}
 			throw new Exception ($"Can't find member: '{two}' on '{one}'");
 		}
 		internal static dynamic Set (dynamic one, string two, dynamic value, Runtime.Heap heap = null)
@@ -175,17 +177,17 @@ namespace LevelScript {
 		}
 		public static dynamic Call (object function, dynamic [] parameters, Runtime.Heap heap = null)
 		{
-			heap = new Runtime.Heap (heap);
+			//heap = new Runtime.Heap (heap);
 			heap.Enter ();
 			//function = Evaluate (function); I think this isnt needeed
 			switch (function) {
-			case ClassDefinition classInialize:
+		/*case ClassDefinition classInialize:
 				Class _class = new Class (new Runtime.Heap (heap));
 				classInialize.code.EvalOpen (_class.heap);
 				if(_class.heap.globals.ContainsKey(classInialize.name) && _class.heap[classInialize.name] is Method init) {
 					init.Run (null, _class.heap);
 				}
-				return _class;
+				return _class;*/
 			case Method scriptedMethod:
 				return Run (scriptedMethod, parameters, heap);
 			case Method.Instanced scriptedInstanceMethod:
@@ -342,6 +344,15 @@ namespace LevelScript {
 		public Class (Runtime.Heap heap)
 		{
 			this.heap = heap;
+		}
+	}
+	public struct Splice {
+		public int start;
+		public int end;
+		public Splice (int start, int end)
+		{
+			this.start = start;
+			this.end = end;
 		}
 	}
 	//public enum Void { start, }

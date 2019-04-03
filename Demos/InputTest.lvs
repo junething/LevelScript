@@ -1,7 +1,6 @@
-print("adf")
-def one ():
-    await seconds (1)
-end
-text = await one()
-print("done")
-
+while true {
+	if get_key(key.Space) {
+		print ("space")
+	}
+	await frames (1)
+}

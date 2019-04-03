@@ -1,7 +1,2 @@
-if true:
-print("adfs")
-elif true:
-afds()
-else:
-print("afd")
-end
+list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+print("012345678912345678901234567890" [3:8])

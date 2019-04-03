@@ -2,7 +2,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using System.Linq;
 using static LevelScript.Methods;
 namespace LevelScript {
 	public abstract class Node {
@@ -35,7 +35,7 @@ namespace LevelScript {
 			}
 			public override dynamic Eval (Runtime.Heap heap)
 			{
-				Debug.Log (@operator);
+//				Debug.Log (@operator);
 				dynamic one = (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign) ? LHS.Eval (heap) : LHS;
 				dynamic two = RHS.Eval (heap);
 				return Methods.Operate (one, two, @operator);
@@ -45,6 +45,10 @@ namespace LevelScript {
 				dynamic one = (Lexer.operators [@operator].Type != Lexer.OperatorType.Assign) ? await LHS.EvalAsync (heap) : LHS;
 				dynamic two = await RHS.EvalAsync (heap);
 				return Methods.Operate (one, two, @operator);
+			}
+			public override string ToString ()
+			{
+				return ($"({LHS} {Logging.Display (@operator)} {RHS})");
 			}
 		}
 		public class Until : Node {
@@ -90,7 +94,7 @@ namespace LevelScript {
 			public override async Task<dynamic> EvalAsync (Runtime.Heap heap)
 			{
 				dynamic right = await RHS.EvalAsync (heap);
-				Debug.Log ($"{Parser.show (LHS)} = {right}");
+//				Debug.Log ($"{LHS} = {right}");
 				switch (LHS) {
 				case Index index:
 					Node collection = index.list;
@@ -123,11 +127,16 @@ namespace LevelScript {
 					return right;
 				case Access access:
 					dynamic obj = access.obj.Eval (heap);
-					dynamic member = Methods.Access (access.obj, access.member, false);
+//					Debug.Log (access.obj.ToString ());
+					dynamic member = Methods.Access (access.obj.Eval(heap), access.member, false);
 					member.SetValue (obj, right);
 					return right;
 				}
 				throw new System.Exception ("could not assign");
+			}
+			public override string ToString ()
+			{
+				return $"{LHS} = {RHS}";
 			}
 		}
 		public class Const : Node {
@@ -139,6 +148,14 @@ namespace LevelScript {
 			public override dynamic Eval (Runtime.Heap heap)
 			{
 				return value;
+			}
+			public override string ToString ()
+			{
+				if (value is List<dynamic>)
+					return "[ " + string.Join (", ", ((List<dynamic>)value).Select (t => t.ToString())) + " ]";
+				if (value is string)
+					return $"\"{value}\"";
+				return value.ToString ();
 			}
 		}
 		public class If : Node {
@@ -180,6 +197,10 @@ namespace LevelScript {
 					return await @else.EvalAsync (heap);
 				}
 				return null;
+			}
+			public override string ToString ()
+			{
+				return $"if {(condition)} then {{ {(body)} }} else {{ {(@else)} }}";
 			}
 		}
 		public class Return : Node {
@@ -323,6 +344,10 @@ namespace LevelScript {
 				heap.Exit ();
 				return null;
 			}
+			public override string ToString ()
+			{
+				return $"for ({variable} in { (list)}) do {{\n {(body)} \n}}\n";
+			}
 		}
 		public class Access : Node {
 			public readonly string member;
@@ -333,10 +358,8 @@ namespace LevelScript {
 				this.member = member;
 				debug = debugInfo;
 			}
-			public override dynamic Eval (Runtime.Heap heap)
-			{
-				return Methods.Access (obj.Eval (heap), member);
-			}
+			public override dynamic Eval (Runtime.Heap heap) => Methods.Access (obj.Eval (heap), member);
+			public override string ToString () => ($"({obj}.{member})");
 		}
 		public class DefineMethod : Node {
 			public readonly string name;
@@ -354,6 +377,10 @@ namespace LevelScript {
 			{
 				heap [name] = new Method (code, parameters, debug);
 				return heap [name];
+			}
+			public override string ToString ()
+			{
+			return $"def {name } ({ string.Join (", ", parameters) }) {{\n {code} \n}}";
 			}
 		}
 		public class DefineClass : Node {
@@ -384,6 +411,7 @@ namespace LevelScript {
 			{
 				return heap [word];
 			}
+			public override string ToString () => word;
 		}
 		public class Code : Node {
 			public readonly Node [] code;
@@ -440,6 +468,7 @@ namespace LevelScript {
 				heap.Exit ();
 				return new Void ();
 			}
+			public override string ToString () => string.Join ("\n ",(object[])code/*Array.ConvertAll<System.Object, string> (code, ToString)*/);
 		}
 		public class Call : Node {
 			public Node function;
@@ -463,11 +492,25 @@ namespace LevelScript {
 			{
 				return Evaluate (await Methods.CallAsync (await function.EvalAsync (heap), await parameters.EvalAsync (heap), heap));
 			}
+			public override string ToString ()
+			{
+				return $"{ (function) } @ ( { string.Join (", ", (object[])parameters) } )";
+			}
 
 		}
-		public class List : Node {
+		public class LsList : List<dynamic> {
+			public override string ToString ()
+			{
+				return base.ToString ();
+			}
+			public LsList ()
+			{
+
+			}
+		}
+		public class ListConstructor : Node {
 			public List<Node> items;
-			public List (List<Node> items, DebugInfo debug = null)
+			public ListConstructor (List<Node> items, DebugInfo debug = null)
 			{
 				this.items = items;
 				this.debug = debug;
@@ -475,6 +518,32 @@ namespace LevelScript {
 			public override dynamic Eval (Runtime.Heap heap)
 			{
 				return items.ConvertAll (x => Evaluate (x.Eval (heap)));
+			}
+			public override string ToString ()
+			{
+				return "[ " + string.Join (", ", items.Select (t => (t))) + " ]";
+			}
+	}
+		public class New : Node {
+			public Call thing;
+			public New (Call thing)
+			{
+				this.thing = thing;
+			}
+			public override dynamic Eval (Runtime.Heap heap)
+			{
+
+				Class _class = new Class (new Runtime.Heap (heap));
+				ClassDefinition classDefinition = thing.function.Eval (heap);
+				classDefinition.code.EvalOpen (_class.heap);
+				if (_class.heap.globals.ContainsKey (classDefinition.name) && _class.heap [classDefinition.name] is Method init) {
+					init.Run (thing.parameters, _class.heap);
+				}
+				return _class;
+			}
+			public override string ToString ()
+			{
+				return $"new {thing}";
 			}
 		}
 		public class Index : Node {
@@ -494,17 +563,21 @@ namespace LevelScript {
 					int start = op.LHS.Eval (heap);
 					int end = op.RHS.Eval (heap);
 					if (collection is string str)
-						return str.Substring (start, end);
+						return str.Substring (start, end - start);
 					if (collection.GetType ().IsArray)
 						return SubArray<dynamic> (collection, start, end);
 					if (Library.Crucial.IsList (collection))
-						return collection.GetRange (start, end);
+						return collection.GetRange (start, end - start);
 					throw new Exception ("WHAT");
 				}
 				dynamic key = this.key.Eval (heap);
 				if (key is int && key < 0)
 					key = Library.Crucial.GetLength (collection) + key;
 				return collection [key];
+			}
+			public override string ToString ()
+			{
+				return $"{list} [{key}]";
 			}
 		}
 		public class DebugInfo {

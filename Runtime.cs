@@ -19,9 +19,11 @@ namespace LevelScript {
 			globals = new Dictionary<string, dynamic> ();
 			heap = new Heap (this);
 			this ["math"] = typeof (Library.Math);
-			this ["input"] = GetMethod ("GetUserInput", this);
+			//this ["input"] = GetMethod ("GetUserInput", this);
+			this ["input"] = typeof (Input);
+			this [""] += typeof (Library.Unity);
+			this ["key"] = typeof (KeyCode);
 			this [""] += typeof (Library.Crucial);
-			Debug.Log (this["test"]);
 		}
 		
 		public Runtime (string input, Dictionary<string, dynamic> parentInstanceMembers = null)
@@ -48,13 +50,15 @@ namespace LevelScript {
 				switch (member) {
 				case MethodInfo method:
 					this [method.Name.Snake (enforceSnakeCase)] = new InstanceMethodInfo (method, null);
-//					Debug.Log (method.Name.Snake (enforceSnakeCase));
+		//			Debug.Log (method.Name.Snake (enforceSnakeCase));
 					break;
 				case FieldInfo field:
 					this [field.Name.Snake (enforceSnakeCase)] = field.GetValue (null);
+		//			Debug.Log (field.Name.Snake (enforceSnakeCase));
 					break;
 				case PropertyInfo property:
 					this [property.Name.Snake (enforceSnakeCase)] = property.GetValue (null);
+		//			Debug.Log (property.Name.Snake (enforceSnakeCase));
 					break;
 				}
 			}
@@ -86,7 +90,6 @@ namespace LevelScript {
 				} catch (Exception e) {
 					debugOut?.Invoke (debug, e);
 					return null;
-					
 				}
 			}
 //			if (exit)
@@ -163,7 +166,12 @@ namespace LevelScript {
 		}
 		public dynamic Call (string function, dynamic [] parameters = null)
 		{
-			return Methods.Call (heap [function], parameters);
+			//try {
+				return Methods.Call (heap [function], parameters, heap);
+			//} catch (Exception e) {
+			//	debugOut?.Invoke (debug, e);
+			//	return null;
+			//}
 		}
 		public class Nothing {
 			public static object operator+ (Nothing nothing, object other) { return other; }
@@ -192,7 +200,7 @@ namespace LevelScript {
 			{
 //				Debug.Log ("heap2");
 				globals = oldHeap != null ? oldHeap.globals : new Dictionary<string, dynamic> ();
-				globalglobals = oldHeap.globalglobals;
+				globalglobals = oldHeap?.globalglobals;
 				scopes = new List<Dictionary<string, dynamic>> ();
 			}
 			public Heap () // Will be used in static method calls? If I implemnt them??

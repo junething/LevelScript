@@ -30,6 +30,9 @@ namespace LevelScript {
 					await Task.Yield ();
 				return 0;
 			}
+			public static bool GetKeyDown (KeyCode k) => Input.GetKeyDown(k);
+			public static bool GetKey (KeyCode k) => Input.GetKey (k);
+			public static Quaternion Rotation (float x, float y, float z) { return Quaternion.Euler (new Vector3 (x, y, z)); }
 		}
 		public static class Crucial {
 			public static int test = 7;
@@ -45,6 +48,12 @@ namespace LevelScript {
 					if (int.TryParse (s, out outInt))
 						return outInt;
 					break;
+				default:
+					try {
+						return (int)obj;
+					} catch {
+						throw new Exception (obj.ToString () + " cannot be converted to an int");
+					}
 				}
 				throw new Exception (obj.ToString () + " cannot be converted to an int");
 			}

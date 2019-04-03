@@ -16,7 +16,7 @@ namespace LevelScript {
 		Assign, PlusAssign, MultiplyAssign, DivideAssign, MinusAssign,                                              // Assign
 																				//     ..
 		Range,                                             // Other
-		Define, Class, If, For, While, Else, Elif, Return, Wait                                                      // I dont like these here :( HACK
+		Define, Class, If, For, While, Else, Elif, Return, Wait, New                                                      // I dont like these here :( HACK
 
 	};
 	public class Token {
