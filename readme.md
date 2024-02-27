@@ -1,6 +1,6 @@
 # LevelScipt
 
-LevelScript is a dynamic scripting langauge capable of running in a Unity game on the C# runtime. LevelScript is intended to allow advanced interactivity in user created levels. The syntax is most similar to python, and it aims to be beginner friedly without holding back advanced users. It uses the C# Expression builder to run on the same .NET virtual machine, meaning LevelScript is nearly as fast as the equivant C# (using `dynamic`) and LevelScript code can work with C# objects thanks to C#'s built-in gradual typing.
+LevelScript is a dynamic scripting langauge capable of running in a Unity game. LevelScript is intended to allow advanced interactivity in user created levels. The syntax is most similar to python, and it aims to be beginner friedly without holding back advanced users.
 
 ## Example
 ```python
